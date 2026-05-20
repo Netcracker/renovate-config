@@ -1,0 +1,24 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Org-wide defaults for all repos in the organization",
+  "extends": [
+    "config:best-practices"
+  ],
+  "minimumReleaseAge": "7 days",
+  "internalChecksFilter": "strict",
+  "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "minimumReleaseAge": null,
+    "schedule": ["at any time"],
+    "prCreation": "immediate"
+  },
+  "packageRules": [
+    {
+      "description": "Group all actions/* GitHub Actions into a single PR",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["actions/**"],
+      "groupName": "actions org"
+    }
+  ]
+}
