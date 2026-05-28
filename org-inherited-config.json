@@ -19,6 +19,24 @@
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["actions/**"],
       "groupName": "actions org"
+    },
+    {
+      "description": ["Skip the release-age delay for in-house Maven libraries"],
+      "matchDatasources": ["maven"],
+      "matchPackageNames": ["/^com\\.netcracker[.:]/", "/^org\\.qubership[.:]/"],
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": ["Skip the release-age delay for in-house Docker images"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/netcracker/**"],
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": ["Skip the release-age delay for in-house Go modules"],
+      "matchDatasources": ["go"],
+      "matchPackageNames": ["github.com/Netcracker/**"],
+      "minimumReleaseAge": "0 days"
     }
   ]
 }
