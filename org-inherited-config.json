@@ -37,6 +37,17 @@
       "matchDatasources": ["go"],
       "matchPackageNames": ["github.com/Netcracker/**"],
       "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": ["Skip the release-age delay for Go toolchain updates (go and toolchain directives)"],
+      "matchDatasources": ["golang-version"],
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": ["Skip the release-age delay for official golang.org/x library updates"],
+      "matchDatasources": ["go"],
+      "matchPackageNames": ["golang.org/x/**"],
+      "minimumReleaseAge": "0 days"
     }
   ]
 }
