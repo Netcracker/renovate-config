@@ -15,6 +15,7 @@ The Mend Renovate App is configured at the organization level with **Inherited C
 - `internalChecksFilter: "strict"` — when the newest version is still inside the 7-day window, Renovate proposes the latest version that has already matured rather than opening a PR marked "pending".
 - `osvVulnerabilityAlerts: true` — enables the OSV.dev source for CVEs in addition to GitHub Security Advisories.
 - **Security updates bypass the 7-day delay.** The `vulnerabilityAlerts` block opens vulnerability PRs immediately (`minimumReleaseAge: null`, `prCreation: "immediate"`, `schedule: ["at any time"]`).
+- **Go toolchain and official `golang.org/x/*` updates bypass the 7-day delay** (`minimumReleaseAge: "0 days"`). The Go toolchain is matched by the `golang-version` datasource (the `go` and `toolchain` directives in `go.mod`); the official libraries are matched by the `golang.org/x/**` package names on the `go` datasource. Ordinary Go module dependencies keep the standard 7-day delay.
 - Groups all `actions/*` GitHub Actions updates into a single PR titled `actions org`.
 
 ## Overriding for a specific repository
