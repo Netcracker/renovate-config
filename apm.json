@@ -11,8 +11,7 @@
       ],
       "datasourceTemplate": "github-releases",
       "versioningTemplate": "semver",
-      "depTypeTemplate": "apm",
-      "autoReplaceStringTemplate": "{{{depPrefix}}}{{{depName}}}@{{{newValue}}}{{{depSuffix}}}"
+      "depTypeTemplate": "apm"
     },
     {
       "description": "Update APM dependencies pinned to immutable Git refs with a mutable source ref comment.",
@@ -23,20 +22,19 @@
       ],
       "datasourceTemplate": "git-refs",
       "packageNameTemplate": "https://github.com/{{{packageName}}}.git",
-      "depTypeTemplate": "apm",
-      "autoReplaceStringTemplate": "{{{depPrefix}}}{{{depName}}}#{{{newDigest}}}  # {{{currentValue}}}"
+      "depTypeTemplate": "apm"
     },
     {
       "description": "Pin APM dependencies that still reference a mutable Git ref directly.",
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)apm\\.yml$/"],
       "matchStrings": [
-        "(?<depPrefix>-\\s+)(?<depName>(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(?<apmSubdir>[^\\s#@]+))#(?<currentValue>[A-Za-z_./-][A-Za-z0-9_./-]*)"
+        "(?<indentation>[\\t ]*)-\\s+(?<depName>(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(?<apmSubdir>[^\\s#@]+))#(?<currentValue>[A-Za-z_./-][A-Za-z0-9_./-]*)"
       ],
       "datasourceTemplate": "git-refs",
       "packageNameTemplate": "https://github.com/{{{packageName}}}.git",
       "depTypeTemplate": "apm",
-      "autoReplaceStringTemplate": "{{{depPrefix}}}{{{depName}}}#{{{newDigest}}}  # {{{currentValue}}}"
+      "autoReplaceStringTemplate": "{{{indentation}}}- {{{depName}}}#{{{newDigest}}}  # {{{currentValue}}}"
     },
     {
       "description": "Update marketplace APM package entries pinned to immutable Git refs.",
@@ -48,13 +46,13 @@
       "datasourceTemplate": "git-refs",
       "depNameTemplate": "{{{packageName}}}/{{{apmSubdir}}}",
       "packageNameTemplate": "https://github.com/{{{packageName}}}.git",
-      "depTypeTemplate": "apm",
-      "autoReplaceStringTemplate": "{{{depPrefix}}}{{{newDigest}}}  # {{{currentValue}}}"
+      "depTypeTemplate": "apm"
     }
   ],
   "packageRules": [
     {
-      "description": ["Configure APM package updates"],
+      "description": ["Group APM package updates together"],
+      "groupName": "apm packages",
       "matchDepTypes": ["apm"],
       "labels": ["dependencies", "apm"],
       "pinDigests": true

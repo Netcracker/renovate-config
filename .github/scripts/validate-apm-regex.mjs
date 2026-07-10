@@ -2,6 +2,12 @@ import fs from 'node:fs';
 
 const config = JSON.parse(fs.readFileSync('apm.json', 'utf8'));
 const apmPackageRule = config.packageRules.find((rule) => rule.matchDepTypes?.includes('apm'));
+const digestManager = config.customManagers.find((manager) =>
+  manager.description === 'Update APM dependencies pinned to immutable Git refs with a mutable source ref comment.'
+);
+const mutableRefManager = config.customManagers.find((manager) =>
+  manager.description === 'Pin APM dependencies that still reference a mutable Git ref directly.'
+);
 const marketplaceManager = config.customManagers.find((manager) =>
   manager.description === 'Update marketplace APM package entries pinned to immutable Git refs.'
 );
@@ -10,8 +16,16 @@ if (!apmPackageRule) {
   throw new Error('APM package rule was not found');
 }
 
-if ('groupName' in apmPackageRule) {
-  throw new Error('APM package rule must not group custom regex updates because Renovate validates them by depIndex');
+if (apmPackageRule.groupName !== 'apm packages') {
+  throw new Error('APM package rule must group package updates');
+}
+
+if (!digestManager) {
+  throw new Error('Immutable Git ref APM custom manager was not found');
+}
+
+if (!mutableRefManager) {
+  throw new Error('Mutable Git ref APM custom manager was not found');
 }
 
 if (!marketplaceManager) {
@@ -50,4 +64,98 @@ for (const match of matches) {
   if (!match[0].startsWith('- name:')) {
     throw new Error(`Marketplace APM regex must match a complete package item, got ${JSON.stringify(match[0])}`);
   }
+}
+
+const digestFixture = `dependencies:
+  apm:
+    - Netcracker/qubership-ai-packages/agent-packages/apm-authoring#0ce60887d9c585522cfb58b1d9647ebe595fe569  # main
+    - Netcracker/qubership-ai-packages/agent-packages/adr-authoring#0ce60887d9c585522cfb58b1d9647ebe595fe569  # main
+`;
+
+function replaceDigest(manager, content, dependencyIndex, newDigest) {
+  const managerRegex = new RegExp(manager.matchStrings[0], 'g');
+  const managerMatches = [...content.matchAll(managerRegex)];
+  const match = managerMatches[dependencyIndex];
+
+  if (!match) {
+    throw new Error(`Dependency index ${dependencyIndex} was not found`);
+  }
+
+  let replacement;
+  if (manager.autoReplaceStringTemplate) {
+    const templateValues = {
+      depName: match.groups.depName,
+      packageName: match.groups.packageName,
+      currentValue: match.groups.currentValue,
+      currentDigest: match.groups.currentDigest,
+      newDigest,
+    };
+    replacement = manager.autoReplaceStringTemplate.replaceAll(
+      /\{\{\{([^}]+)}}}/g,
+      (_, field) => templateValues[field] ?? ''
+    );
+  } else {
+    replacement = match[0].replace(match.groups.currentDigest, newDigest);
+  }
+
+  return `${content.slice(0, match.index)}${replacement}${content.slice(match.index + match[0].length)}`;
+}
+
+function assertDependencyCountPreserved(manager, content, dependencyIndex) {
+  const managerRegex = new RegExp(manager.matchStrings[0], 'g');
+  const before = [...content.matchAll(managerRegex)];
+  const updated = replaceDigest(manager, content, dependencyIndex, 'b3a0a1582ab3728efdd52c6765f51a6bc75d51af');
+  const after = [...updated.matchAll(managerRegex)];
+
+  if (after.length !== before.length) {
+    throw new Error(`Digest replacement changed dependency count from ${before.length} to ${after.length}`);
+  }
+}
+
+assertDependencyCountPreserved(digestManager, digestFixture, 1);
+assertDependencyCountPreserved(marketplaceManager, fixture, 0);
+
+const supportedTemplateFields = new Set([
+  'currentDigest',
+  'currentValue',
+  'datasource',
+  'depName',
+  'depType',
+  'extractVersion',
+  'indentation',
+  'newDigest',
+  'newValue',
+  'packageName',
+  'registryUrl',
+  'versioning',
+]);
+const mutableTemplateFields = [...mutableRefManager.autoReplaceStringTemplate.matchAll(/\{\{\{([^}]+)}}}/g)].map(
+  (match) => match[1]
+);
+const unsupportedTemplateFields = mutableTemplateFields.filter((field) => !supportedTemplateFields.has(field));
+
+if (unsupportedTemplateFields.length > 0) {
+  throw new Error(`Mutable Git ref replacement uses unsupported fields: ${unsupportedTemplateFields.join(', ')}`);
+}
+
+const mutableFixture = `dependencies:
+  apm:
+    - Netcracker/example/agent-packages/example#main
+`;
+const mutableRegex = new RegExp(mutableRefManager.matchStrings[0], 'g');
+const mutableMatch = [...mutableFixture.matchAll(mutableRegex)][0];
+const mutableValues = {
+  ...mutableMatch.groups,
+  newDigest: 'b3a0a1582ab3728efdd52c6765f51a6bc75d51af',
+};
+const pinnedDependency = mutableRefManager.autoReplaceStringTemplate.replaceAll(
+  /\{\{\{([^}]+)}}}/g,
+  (_, field) => mutableValues[field] ?? ''
+);
+const pinnedFixture = `${mutableFixture.slice(0, mutableMatch.index)}${pinnedDependency}${mutableFixture.slice(
+  mutableMatch.index + mutableMatch[0].length
+)}`;
+
+if ([...pinnedFixture.matchAll(new RegExp(digestManager.matchStrings[0], 'g'))].length !== 1) {
+  throw new Error('Pinned mutable Git ref must be detected as an immutable Git ref');
 }
