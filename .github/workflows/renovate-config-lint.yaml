@@ -4,13 +4,17 @@ name: Validate Renovate Config
 on:
   push:
     paths:
+      - apm.json
       - default.json
       - org-inherited-config.json
+      - .github/scripts/validate-apm-regex.mjs
       - .github/workflows/renovate-config-lint.yaml
   pull_request:
     paths:
+      - apm.json
       - default.json
       - org-inherited-config.json
+      - .github/scripts/validate-apm-regex.mjs
       - .github/workflows/renovate-config-lint.yaml
   workflow_dispatch: null
 
@@ -30,4 +34,7 @@ jobs:
       - name: Validate Renovate configs
         run: |
           docker run --rm -v "$PWD":/work -w /work renovate/renovate:latest \
-            renovate-config-validator --strict default.json org-inherited-config.json
+            renovate-config-validator --strict default.json org-inherited-config.json apm.json
+
+      - name: Validate APM regex behavior
+        run: node .github/scripts/validate-apm-regex.mjs
