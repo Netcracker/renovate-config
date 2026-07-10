@@ -54,9 +54,8 @@
   ],
   "packageRules": [
     {
-      "description": ["Group APM package updates together"],
+      "description": ["Configure APM package updates"],
       "matchDepTypes": ["apm"],
-      "groupName": "apm packages",
       "labels": ["dependencies", "apm"],
       "pinDigests": true
     }

@@ -1,9 +1,18 @@
 import fs from 'node:fs';
 
 const config = JSON.parse(fs.readFileSync('apm.json', 'utf8'));
+const apmPackageRule = config.packageRules.find((rule) => rule.matchDepTypes?.includes('apm'));
 const marketplaceManager = config.customManagers.find((manager) =>
   manager.description === 'Update marketplace APM package entries pinned to immutable Git refs.'
 );
+
+if (!apmPackageRule) {
+  throw new Error('APM package rule was not found');
+}
+
+if ('groupName' in apmPackageRule) {
+  throw new Error('APM package rule must not group custom regex updates because Renovate validates them by depIndex');
+}
 
 if (!marketplaceManager) {
   throw new Error('Marketplace APM custom manager was not found');
