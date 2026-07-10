@@ -43,7 +43,7 @@
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)apm\\.yml$/"],
       "matchStrings": [
-        "(?<depPrefix>source:\\s+(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\n\\s+subdir:\\s+(?<apmSubdir>[^\\n]+)\\n\\s+ref:\\s+)(?<currentDigest>[0-9a-f]{40})\\s+#\\s+(?<currentValue>[^\\s#]+)"
+        "(?<depPrefix>-[^\\S\\n]+name:[^\\S\\n]+[^\\n]+\\n[^\\S\\n]+source:[^\\S\\n]+(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\n[^\\S\\n]+subdir:[^\\S\\n]+(?<apmSubdir>[^\\n]+)\\n[^\\S\\n]+ref:[^\\S\\n]+)(?<currentDigest>[0-9a-f]{40})\\s+#\\s+(?<currentValue>[^\\s#]+)"
       ],
       "datasourceTemplate": "git-refs",
       "depNameTemplate": "{{{packageName}}}/{{{apmSubdir}}}",
