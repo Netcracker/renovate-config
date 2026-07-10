@@ -35,6 +35,20 @@ To opt a repository out entirely, set `"enabled": false` (or remove the Mend ins
 
 [`default.json`](./default.json) is a small explicit preset (`extends: ["config:recommended"]`) provided for the rare case where a repository wants to opt into a named preset via `"extends": ["github>Netcracker/renovate-config"]`. It is **not** what powers the automatic inheritance described above — that comes from `org-inherited-config.json`.
 
+## `apm.json` preset
+
+[`apm.json`](./apm.json) detects APM package references in `apm.yml` files. It updates package references pinned to
+GitHub release tags, package references pinned to immutable Git SHAs with a source-ref comment, mutable package
+references that still need a SHA pin, and marketplace entries that use `source`, `subdir`, and `ref`.
+
+Use it from a repository-local config:
+
+```json
+{
+  "extends": ["github>Netcracker/renovate-config:apm"]
+}
+```
+
 ## Changing the org-wide config
 
 Open a PR against `org-inherited-config.json`. Once merged to `main`, the next Renovate run on any repository in the org picks up the new values automatically.
