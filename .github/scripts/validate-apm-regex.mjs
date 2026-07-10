@@ -2,11 +2,8 @@ import fs from 'node:fs';
 
 const config = JSON.parse(fs.readFileSync('apm.json', 'utf8'));
 const apmPackageRule = config.packageRules.find((rule) => rule.matchDepTypes?.includes('apm'));
-const digestManager = config.customManagers.find((manager) =>
-  manager.description === 'Update APM dependencies pinned to immutable Git refs with a mutable source ref comment.'
-);
-const mutableRefManager = config.customManagers.find((manager) =>
-  manager.description === 'Pin APM dependencies that still reference a mutable Git ref directly.'
+const gitRefManager = config.customManagers.find((manager) =>
+  manager.description === 'Pin and update APM dependencies that reference Git refs.'
 );
 const marketplaceManager = config.customManagers.find((manager) =>
   manager.description === 'Update marketplace APM package entries pinned to immutable Git refs.'
@@ -20,12 +17,8 @@ if (apmPackageRule.groupName !== 'apm packages') {
   throw new Error('APM package rule must group package updates');
 }
 
-if (!digestManager) {
-  throw new Error('Immutable Git ref APM custom manager was not found');
-}
-
-if (!mutableRefManager) {
-  throw new Error('Mutable Git ref APM custom manager was not found');
+if (!gitRefManager) {
+  throw new Error('Git ref APM custom manager was not found');
 }
 
 if (!marketplaceManager) {
@@ -88,6 +81,7 @@ function replaceDigest(manager, content, dependencyIndex, newDigest) {
       packageName: match.groups.packageName,
       currentValue: match.groups.currentValue,
       currentDigest: match.groups.currentDigest,
+      indentation: match.groups.indentation,
       newDigest,
     };
     replacement = manager.autoReplaceStringTemplate.replaceAll(
@@ -112,7 +106,7 @@ function assertDependencyCountPreserved(manager, content, dependencyIndex) {
   }
 }
 
-assertDependencyCountPreserved(digestManager, digestFixture, 1);
+assertDependencyCountPreserved(gitRefManager, digestFixture, 1);
 assertDependencyCountPreserved(marketplaceManager, fixture, 0);
 
 const supportedTemplateFields = new Set([
@@ -129,7 +123,7 @@ const supportedTemplateFields = new Set([
   'registryUrl',
   'versioning',
 ]);
-const mutableTemplateFields = [...mutableRefManager.autoReplaceStringTemplate.matchAll(/\{\{\{([^}]+)}}}/g)].map(
+const mutableTemplateFields = [...gitRefManager.autoReplaceStringTemplate.matchAll(/\{\{\{([^}]+)}}}/g)].map(
   (match) => match[1]
 );
 const unsupportedTemplateFields = mutableTemplateFields.filter((field) => !supportedTemplateFields.has(field));
@@ -142,13 +136,13 @@ const mutableFixture = `dependencies:
   apm:
     - Netcracker/example/agent-packages/example#main
 `;
-const mutableRegex = new RegExp(mutableRefManager.matchStrings[0], 'g');
+const mutableRegex = new RegExp(gitRefManager.matchStrings[0], 'g');
 const mutableMatch = [...mutableFixture.matchAll(mutableRegex)][0];
 const mutableValues = {
   ...mutableMatch.groups,
-  newDigest: 'b3a0a1582ab3728efdd52c6765f51a6bc75d51af',
+  newDigest: '4594b3b9d09c066ec549f4b6cee2eb1266c7f948',
 };
-const pinnedDependency = mutableRefManager.autoReplaceStringTemplate.replaceAll(
+const pinnedDependency = gitRefManager.autoReplaceStringTemplate.replaceAll(
   /\{\{\{([^}]+)}}}/g,
   (_, field) => mutableValues[field] ?? ''
 );
@@ -156,6 +150,6 @@ const pinnedFixture = `${mutableFixture.slice(0, mutableMatch.index)}${pinnedDep
   mutableMatch.index + mutableMatch[0].length
 )}`;
 
-if ([...pinnedFixture.matchAll(new RegExp(digestManager.matchStrings[0], 'g'))].length !== 1) {
-  throw new Error('Pinned mutable Git ref must be detected as an immutable Git ref');
+if ([...pinnedFixture.matchAll(new RegExp(gitRefManager.matchStrings[0], 'g'))].length !== 1) {
+  throw new Error('Pinned mutable Git ref must still be detected by the manager that pinned it');
 }

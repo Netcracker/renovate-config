@@ -14,22 +14,11 @@
       "depTypeTemplate": "apm"
     },
     {
-      "description": "Update APM dependencies pinned to immutable Git refs with a mutable source ref comment.",
+      "description": "Pin and update APM dependencies that reference Git refs.",
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)apm\\.yml$/"],
       "matchStrings": [
-        "(?<depPrefix>-\\s+)(?<depName>(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(?<apmSubdir>[^\\s#@]+))#(?<currentDigest>[0-9a-f]{40})\\s+#\\s+(?<currentValue>[^\\s#]+)"
-      ],
-      "datasourceTemplate": "git-refs",
-      "packageNameTemplate": "https://github.com/{{{packageName}}}.git",
-      "depTypeTemplate": "apm"
-    },
-    {
-      "description": "Pin APM dependencies that still reference a mutable Git ref directly.",
-      "customType": "regex",
-      "managerFilePatterns": ["/(^|/)apm\\.yml$/"],
-      "matchStrings": [
-        "(?<indentation>[\\t ]*)-\\s+(?<depName>(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(?<apmSubdir>[^\\s#@]+))#(?<currentValue>[A-Za-z_./-][A-Za-z0-9_./-]*)"
+        "(?<indentation>[\\t ]*)-\\s+(?<depName>(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(?<apmSubdir>[^\\s#@]+))#(?:(?<currentDigest>[0-9a-f]{40})\\s+#\\s+)?(?<currentValue>[A-Za-z_./-][A-Za-z0-9_./-]*)"
       ],
       "datasourceTemplate": "git-refs",
       "packageNameTemplate": "https://github.com/{{{packageName}}}.git",
