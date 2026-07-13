@@ -29,46 +29,21 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate shareable Renovate configs
+      - name: Validate shared Renovate configs
         run: |
-          configs=(
-            annotated-versions.json
-            apm.json
-            base.json
-            default.json
-            github-actions.json
-            go-tidy.json
-            go.json
-            grafana-plugins.json
-            graylog-plugins.json
-            netcracker-dependencies.json
-          )
+          configs=()
+          for config in ./*.json; do
+            if [[ "$config" != "./renovate.json" ]]; then
+              configs+=("${config#./}")
+            fi
+          done
           docker run --rm -v "$PWD":/work -w /work renovate/renovate:latest \
             renovate-config-validator --strict --no-global "${configs[@]}"
 
-      - name: Validate inherited Renovate config
+      - name: Validate repository Renovate config
         run: |
           docker run --rm -v "$PWD":/work -w /work renovate/renovate:latest \
-            renovate-config-validator --strict --no-global org-inherited-config.json
-
-      - name: Parse Renovate config JSON
-        run: |
-          configs=(
-            annotated-versions.json
-            apm.json
-            base.json
-            default.json
-            github-actions.json
-            go-tidy.json
-            go.json
-            grafana-plugins.json
-            graylog-plugins.json
-            netcracker-dependencies.json
-            org-inherited-config.json
-          )
-          node -e \
-            'const fs = require("node:fs"); for (const file of process.argv.slice(1)) JSON.parse(fs.readFileSync(file));' \
-            "${configs[@]}"
+            renovate-config-validator --strict --no-global renovate.json
 
       - name: Validate capability preset behavior
         run: node .github/scripts/test-presets.mjs

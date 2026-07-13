@@ -23,7 +23,7 @@
       "customType": "regex",
       "managerFilePatterns": ["/(^|/).+\\.tpl$/"],
       "matchStrings": [
-        "\\{\\{- /\\* # renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))? \\*/ -\\}\\}[^\\S\\r\\n]*\\r?\\n[\\t ]*\\{\\{- print \\\"[^\\\"\\r\\n]+:(?<currentValue>v?\\d+\\.\\d+\\.\\d+(?:[-+][A-Za-z0-9._-]+)?)\\\" -\\}\\}"
+        "\\{\\{-?[\\t ]*/\\*[\\t ]+#?[\\t ]*renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[\\t ]*\\*/[\\t ]*-?\\}\\}[^\\S\\r\\n]*\\r?\\n[\\t ]*\\{\\{-?[\\t ]*print[\\t ]+\\\"[^\\\"\\r\\n]+:(?<currentValue>v?\\d+\\.\\d+\\.\\d+(?:[-+][A-Za-z0-9._-]+)?)\\\"[\\t ]*-?\\}\\}"
       ]
     },
     {

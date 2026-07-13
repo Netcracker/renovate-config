@@ -134,6 +134,13 @@ function assertNoAutomerge(configs) {
   }
 }
 
+function assertRepositoryPolicy(config) {
+  assert.ok(
+    config.extends?.includes(':ignoreModulesAndTests'),
+    'renovate.json must ignore test and fixture dependency files'
+  );
+}
+
 function assertAnnotatedVersions(config) {
   const fixtures = [
     [
@@ -173,6 +180,14 @@ function assertAnnotatedVersions(config) {
       'Update annotated image versions in Helm print templates.',
       'quay.io/grafana-operator/grafana-operator',
       'v5.22.2',
+      undefined,
+      undefined,
+    ],
+    [
+      'annotated-versions/helm-comment.tpl',
+      'Update annotated image versions in Helm print templates.',
+      'otel/opentelemetry-collector-contrib',
+      '0.131.0',
       undefined,
       undefined,
     ],
@@ -254,6 +269,7 @@ function assertGraylogPlugins(config) {
 }
 
 const configs = Object.fromEntries(presetNames.map((name) => [name, readJson(`${name}.json`)]));
+assertRepositoryPolicy(readJson('renovate.json'));
 assertBasePolicy(configs.base);
 assertGitHubActionsPolicy(configs['github-actions']);
 assertGoPolicy(configs.go);
