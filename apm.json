@@ -23,7 +23,7 @@
       "datasourceTemplate": "git-refs",
       "packageNameTemplate": "https://github.com/{{{packageName}}}.git",
       "depTypeTemplate": "apm",
-      "autoReplaceStringTemplate": "{{{indentation}}}- {{{depName}}}#{{{newDigest}}}  # {{{currentValue}}}"
+      "autoReplaceStringTemplate": "{{{indentation}}}- {{{depName}}}#{{{newDigest}}}  # {{{newValue}}}"
     },
     {
       "description": "Update marketplace APM package entries pinned to immutable Git refs.",

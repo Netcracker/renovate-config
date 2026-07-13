@@ -65,7 +65,7 @@ const digestFixture = `dependencies:
     - Netcracker/qubership-ai-packages/agent-packages/adr-authoring#0ce60887d9c585522cfb58b1d9647ebe595fe569  # main
 `;
 
-function replaceDigest(manager, content, dependencyIndex, newDigest) {
+function replaceDigest(manager, content, dependencyIndex, newDigest, newValue) {
   const managerRegex = new RegExp(manager.matchStrings[0], 'g');
   const managerMatches = [...content.matchAll(managerRegex)];
   const match = managerMatches[dependencyIndex];
@@ -83,6 +83,7 @@ function replaceDigest(manager, content, dependencyIndex, newDigest) {
       currentDigest: match.groups.currentDigest,
       indentation: match.groups.indentation,
       newDigest,
+      newValue,
     };
     replacement = manager.autoReplaceStringTemplate.replaceAll(
       /\{\{\{([^}]+)}}}/g,
@@ -108,6 +109,29 @@ function assertDependencyCountPreserved(manager, content, dependencyIndex) {
 
 assertDependencyCountPreserved(gitRefManager, digestFixture, 1);
 assertDependencyCountPreserved(marketplaceManager, fixture, 0);
+
+const versionedRefFixture = `dependencies:
+  apm:
+    - Netcracker/qubership-ai-agent-telemetry/agent-packages/ai-agent-telemetry#96f42e9a2a694632f3ef355ce45ad33c13906220  # v0.1.0
+`;
+for (const newValue of ['v0.2.0', 'v1.0.0']) {
+  const updatedVersionedRef = replaceDigest(
+    gitRefManager,
+    versionedRefFixture,
+    0,
+    'f7d7b53f2eb840645236cd46d60750db53f0ef6e',
+    newValue
+  );
+  const updatedVersionedMatch = [
+    ...updatedVersionedRef.matchAll(new RegExp(gitRefManager.matchStrings[0], 'g')),
+  ][0];
+
+  if (updatedVersionedMatch?.groups.currentValue !== newValue) {
+    throw new Error(
+      `Versioned Git ref replacement kept ${JSON.stringify(updatedVersionedMatch?.groups.currentValue)}, expected ${JSON.stringify(newValue)}`
+    );
+  }
+}
 
 const supportedTemplateFields = new Set([
   'currentDigest',
@@ -141,6 +165,7 @@ const mutableMatch = [...mutableFixture.matchAll(mutableRegex)][0];
 const mutableValues = {
   ...mutableMatch.groups,
   newDigest: '4594b3b9d09c066ec549f4b6cee2eb1266c7f948',
+  newValue: mutableMatch.groups.currentValue,
 };
 const pinnedDependency = gitRefManager.autoReplaceStringTemplate.replaceAll(
   /\{\{\{([^}]+)}}}/g,
