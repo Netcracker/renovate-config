@@ -1,0 +1,12 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": ["Apply the explicit baseline for repository Renovate configuration"],
+  "extends": [
+    "config:best-practices",
+    "schedule:weekly"
+  ],
+  "labels": ["dependencies"],
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps"
+}

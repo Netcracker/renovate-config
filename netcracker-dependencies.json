@@ -1,0 +1,43 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": ["Group internal Netcracker dependencies by ecosystem without a release-age delay"],
+  "packageRules": [
+    {
+      "description": ["Group Netcracker GitHub Actions non-major updates"],
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["Netcracker/**", "netcracker/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest", "pinDigest"],
+      "groupName": "Netcracker GitHub Actions",
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": ["Group major Netcracker GitHub Actions updates separately"],
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["Netcracker/**", "netcracker/**"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "major Netcracker GitHub Actions",
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": ["Group Netcracker Docker images"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["ghcr.io/netcracker/**"],
+      "groupName": "Netcracker Docker images",
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": ["Group Netcracker Go modules"],
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["github.com/Netcracker/**"],
+      "groupName": "Netcracker Go modules",
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": ["Group Netcracker Maven artifacts"],
+      "matchManagers": ["maven"],
+      "matchPackageNames": ["/^com\\.netcracker[.:]/", "/^org\\.qubership[.:]/"],
+      "groupName": "Netcracker Maven artifacts",
+      "minimumReleaseAge": "0 days"
+    }
+  ]
+}

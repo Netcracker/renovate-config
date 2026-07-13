@@ -4,18 +4,16 @@ name: Validate Renovate Config
 on:
   push:
     paths:
-      - apm.json
-      - default.json
-      - org-inherited-config.json
-      - .github/scripts/validate-apm-regex.mjs
+      - "*.json"
+      - .github/scripts/*.mjs
       - .github/workflows/renovate-config-lint.yaml
+      - tests/fixtures/**
   pull_request:
     paths:
-      - apm.json
-      - default.json
-      - org-inherited-config.json
-      - .github/scripts/validate-apm-regex.mjs
+      - "*.json"
+      - .github/scripts/*.mjs
       - .github/workflows/renovate-config-lint.yaml
+      - tests/fixtures/**
   workflow_dispatch: null
 
 permissions:
@@ -31,10 +29,49 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Validate Renovate configs
+      - name: Validate shareable Renovate configs
+        run: |
+          configs=(
+            annotated-versions.json
+            apm.json
+            base.json
+            default.json
+            github-actions.json
+            go-tidy.json
+            go.json
+            grafana-plugins.json
+            graylog-plugins.json
+            netcracker-dependencies.json
+          )
+          docker run --rm -v "$PWD":/work -w /work renovate/renovate:latest \
+            renovate-config-validator --strict --no-global "${configs[@]}"
+
+      - name: Validate inherited Renovate config
         run: |
           docker run --rm -v "$PWD":/work -w /work renovate/renovate:latest \
-            renovate-config-validator --strict default.json org-inherited-config.json apm.json
+            renovate-config-validator --strict --no-global org-inherited-config.json
+
+      - name: Parse Renovate config JSON
+        run: |
+          configs=(
+            annotated-versions.json
+            apm.json
+            base.json
+            default.json
+            github-actions.json
+            go-tidy.json
+            go.json
+            grafana-plugins.json
+            graylog-plugins.json
+            netcracker-dependencies.json
+            org-inherited-config.json
+          )
+          node -e \
+            'const fs = require("node:fs"); for (const file of process.argv.slice(1)) JSON.parse(fs.readFileSync(file));' \
+            "${configs[@]}"
+
+      - name: Validate capability preset behavior
+        run: node .github/scripts/test-presets.mjs
 
       - name: Validate APM regex behavior
         run: node .github/scripts/validate-apm-regex.mjs

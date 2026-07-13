@@ -1,0 +1,30 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": ["Update Grafana plugins listed as plugin ID and version pairs"],
+  "customManagers": [
+    {
+      "description": "Update Grafana plugin versions in plugins.list files.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)plugins\\.list$/"],
+      "matchStrings": [
+        "(?:^|\\r?\\n)(?<depName>[a-z0-9-]+)[\\t ]+(?<currentValue>\\d+\\.\\d+\\.\\d+)[^\\S\\r\\n]*"
+      ],
+      "datasourceTemplate": "custom.grafana-plugins",
+      "versioningTemplate": "semver"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": ["Group Grafana plugin updates"],
+      "matchDatasources": ["custom.grafana-plugins"],
+      "groupName": "Grafana plugins"
+    }
+  ],
+  "customDatasources": {
+    "grafana-plugins": {
+      "defaultRegistryUrlTemplate": "https://grafana.com/api/plugins/{{packageName}}/versions",
+      "format": "json",
+      "transformTemplates": ["{\"releases\": items.{\"version\": version, \"releaseTimestamp\": createdAt}}"]
+    }
+  }
+}
