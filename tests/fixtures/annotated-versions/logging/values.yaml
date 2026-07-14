@@ -1,0 +1,2 @@
+# renovate: datasource=github-releases depName=Netcracker/qubership-fluentd versioning=loose
+# dockerImage: ghcr.io/netcracker/qubership-fluentd:1.19.2-2

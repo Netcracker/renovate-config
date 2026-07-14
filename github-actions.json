@@ -1,0 +1,34 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": ["Group GitHub Actions updates by ownership and update compatibility"],
+  "packageRules": [
+    {
+      "description": ["Group third-party GitHub Actions non-major updates"],
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["!Netcracker/**", "!netcracker/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest", "pinDigest"],
+      "groupName": "third-party GitHub Actions"
+    },
+    {
+      "description": ["Group third-party GitHub Actions major updates separately"],
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["!Netcracker/**", "!netcracker/**"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "major third-party GitHub Actions"
+    },
+    {
+      "description": ["Group Netcracker GitHub Actions non-major updates"],
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["Netcracker/**", "netcracker/**"],
+      "matchUpdateTypes": ["minor", "patch", "pin", "digest", "pinDigest"],
+      "groupName": "Netcracker GitHub Actions"
+    },
+    {
+      "description": ["Group Netcracker GitHub Actions major updates separately"],
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["Netcracker/**", "netcracker/**"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "major Netcracker GitHub Actions"
+    }
+  ]
+}

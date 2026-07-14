@@ -1,0 +1,4 @@
+# Release tag without a v prefix
+https://github.com/graylog-labs/graylog-plugin-metrics-reporter/releases/download/3.0.0/metrics-reporter-prometheus-3.0.0.jar
+# Release tag with a v prefix
+https://github.com/irgendwr/TelegramAlert/releases/download/v2.3.7/graylog-plugin-telegram-notification-2.3.7.jar

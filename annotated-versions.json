@@ -1,0 +1,54 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": ["Update explicitly annotated version values in supported text files"],
+  "customManagers": [
+    {
+      "description": "Update annotated Docker ARG version values.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)(?:Dockerfile|Containerfile)(?:\\.[^/]+)?$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*ARG [A-Za-z_][A-Za-z0-9_]*[ =][\\\"']?(?<currentValue>[A-Za-z0-9][A-Za-z0-9._+-]*)[\\\"']?[^\\S\\r\\n]*"
+      ]
+    },
+    {
+      "description": "Update annotated next-line YAML and template version values.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/).+\\.(?:ya?ml|ya?ml\\.tmpl|tmpl)$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*[A-Za-z_][A-Za-z0-9_.-]*:[\\t ]*[\\\"']?(?<currentValue>[A-Za-z0-9][A-Za-z0-9._+-]*)[\\\"']?[^\\S\\r\\n]*"
+      ]
+    },
+    {
+      "description": "Update annotated image versions in Helm print templates.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/).+\\.tpl$/"],
+      "matchStrings": [
+        "\\{\\{-?[\\t ]*/\\*[\\t ]+#?[\\t ]*renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[\\t ]*\\*/[\\t ]*-?\\}\\}[^\\S\\r\\n]*\\r?\\n[\\t ]*\\{\\{-?[\\t ]*print[\\t ]+\\\"[^\\\"\\r\\n]+:(?<currentValue>v?\\d+\\.\\d+\\.\\d+(?:[-+][A-Za-z0-9._-]+)?)\\\"[\\t ]*-?\\}\\}"
+      ]
+    },
+    {
+      "description": "Update annotated commented image versions in YAML files.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/).+\\.ya?ml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*#[\\t ]*dockerImage:[\\t ]+[^\\s:]+(?:/[^\\s:]+)*:(?<currentValue>v?\\d+[A-Za-z0-9._+-]*)[^\\S\\r\\n]*"
+      ]
+    },
+    {
+      "description": "Update annotated version directives in configuration files.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/).+\\.conf$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*version[\\t ]+(?<currentValue>v?\\d+[A-Za-z0-9._+-]*)[^\\S\\r\\n]*"
+      ]
+    },
+    {
+      "description": "Update annotated go install versions in Makefiles.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)(?:Makefile|GNUMakefile|[^/]+\\.mk)$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*go install [^\\s@]+@(?<currentValue>v?\\d+\\.\\d+\\.\\d+(?:[-+][A-Za-z0-9._-]+)?)[^\\S\\r\\n]*"
+      ]
+    }
+  ]
+}

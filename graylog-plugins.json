@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": ["Update Graylog plugin JAR URLs backed by GitHub releases"],
+  "customManagers": [
+    {
+      "description": "Update GitHub release tags and JAR versions in Graylog plugins.list files.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)plugins\\.list$/"],
+      "matchStrings": [
+        "https://github\\.com/(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/releases/download/(?<currentValue>v?\\d+\\.\\d+\\.\\d+(?:[-+][A-Za-z0-9._-]+)?)/(?<depName>[A-Za-z0-9_.-]+)-v?\\d+\\.\\d+\\.\\d+(?:[-+][A-Za-z0-9._-]+)?\\.jar"
+      ],
+      "datasourceTemplate": "github-releases",
+      "depTypeTemplate": "graylog-plugin",
+      "versioningTemplate": "semver",
+      "autoReplaceStringTemplate": "https://github.com/{{{packageName}}}/releases/download/{{{newValue}}}/{{{depName}}}-{{{replace '^v' '' newValue}}}.jar"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": ["Group Graylog plugin updates"],
+      "matchDepTypes": ["graylog-plugin"],
+      "groupName": "Graylog plugins"
+    }
+  ]
+}

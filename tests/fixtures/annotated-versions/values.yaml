@@ -1,0 +1,4 @@
+# renovate: datasource=github-releases depName=prometheus/prometheus
+prometheusVersion: v3.5.0
+
+unannotatedVersion: v1.0.0

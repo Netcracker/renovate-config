@@ -1,0 +1,30 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": ["Group related Go dependency families without modifying unrelated modules"],
+  "packageRules": [
+    {
+      "description": ["Group Kubernetes Go modules"],
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["k8s.io/**", "sigs.k8s.io/**"],
+      "groupName": "Kubernetes Go modules"
+    },
+    {
+      "description": ["Group OpenTelemetry Go modules"],
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["go.opentelemetry.io/**", "github.com/open-telemetry/**"],
+      "groupName": "OpenTelemetry Go modules"
+    },
+    {
+      "description": ["Group Prometheus Go modules"],
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["github.com/prometheus/**"],
+      "groupName": "Prometheus Go modules"
+    },
+    {
+      "description": ["Group Go toolchain updates"],
+      "matchManagers": ["gomod"],
+      "matchDatasources": ["golang-version"],
+      "groupName": "Go toolchain"
+    }
+  ]
+}
