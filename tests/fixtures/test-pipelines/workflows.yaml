@@ -1,0 +1,12 @@
+jobs:
+  Monitoring-Pipeline:
+    with:
+      pipeline_branch: 'ddc741b38bac5dc4834b8f6827c9f6d16abf0db8' # v1.14.1 renovate: depName=Netcracker/qubership-test-pipelines
+
+  Consul-Pipeline:
+    with:
+      pipeline_branch: "247c69038e00f2a9e283412e902555f84b16dab2" # v1.8.0 renovate: depName=Netcracker/qubership-test-pipelines
+
+  Compatible-Pipeline:
+    with:
+      pipeline_branch: 'abcdef0' # v2 renovate: depName=Netcracker/qubership-test-pipelines
