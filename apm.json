@@ -3,48 +3,60 @@
   "description": ["Detect APM package dependencies in apm.yml files"],
   "customManagers": [
     {
-      "description": "Update APM dependencies pinned to GitHub release tags.",
+      "description": "Update APM dependencies pinned to version tags with #.",
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)apm\\.yml$/"],
       "matchStrings": [
-        "(?<depPrefix>-\\s+)(?<depName>(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(?<apmSubdir>[^\\s#@]+))@(?<currentValue>v?\\d+\\.\\d+\\.\\d+(?:[-+][A-Za-z0-9_.-]+)?)(?<depSuffix>\\s*(?:#.*)?)"
+        "(?<indentation>[\\t ]*)-\\s+(?<depName>(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(?<apmSubdir>[^\\s#@]+))#(?:[0-9a-f]{40}\\s+#\\s+)?(?<currentValue>[A-Za-z_./-][A-Za-z0-9_./-]*)"
       ],
-      "datasourceTemplate": "github-releases",
+      "datasourceTemplate": "github-tags",
       "versioningTemplate": "semver",
-      "depTypeTemplate": "apm"
-    },
-    {
-      "description": "Pin and update APM dependencies that reference Git refs.",
-      "customType": "regex",
-      "managerFilePatterns": ["/(^|/)apm\\.yml$/"],
-      "matchStrings": [
-        "(?<indentation>[\\t ]*)-\\s+(?<depName>(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(?<apmSubdir>[^\\s#@]+))#(?:(?<currentDigest>[0-9a-f]{40})\\s+#\\s+)?(?<currentValue>[A-Za-z_./-][A-Za-z0-9_./-]*)"
-      ],
-      "datasourceTemplate": "git-refs",
-      "packageNameTemplate": "https://github.com/{{{packageName}}}.git",
       "depTypeTemplate": "apm",
-      "autoReplaceStringTemplate": "{{{indentation}}}- {{{depName}}}#{{{newDigest}}}  # {{{newValue}}}"
+      "autoReplaceStringTemplate": "{{{indentation}}}- {{{depName}}}#{{{newValue}}}"
     },
     {
-      "description": "Update marketplace APM package entries pinned to immutable Git refs.",
+      "description": "Update marketplace APM entries pinned to release tags.",
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)apm\\.yml$/"],
       "matchStrings": [
-        "(?<depPrefix>-[^\\S\\n]+name:[^\\S\\n]+[^\\n]+\\n[^\\S\\n]+source:[^\\S\\n]+(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\n[^\\S\\n]+subdir:[^\\S\\n]+(?<apmSubdir>[^\\n]+)\\n[^\\S\\n]+ref:[^\\S\\n]+)(?<currentDigest>[0-9a-f]{40})\\s+#\\s+(?<currentValue>[^\\s#]+)"
+        "(?<depPrefix>-[^\\S\\n]+name:[^\\S\\n]+[^\\n]+\\n[^\\S\\n]+source:[^\\S\\n]+(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\n[^\\S\\n]+subdir:[^\\S\\n]+(?<apmSubdir>[^\\n]+)\\n[^\\S\\n]+ref:[^\\S\\n]+)(?<currentDigest>[0-9a-f]{40})\\s+#\\s+(?<currentValue>v?\\d+\\.\\d+\\.\\d+[A-Za-z0-9_.+-]*)"
+      ],
+      "datasourceTemplate": "github-tags",
+      "versioningTemplate": "semver",
+      "depNameTemplate": "{{{packageName}}}/{{{apmSubdir}}}",
+      "packageNameTemplate": "{{{packageName}}}",
+      "depTypeTemplate": "apm",
+      "autoReplaceStringTemplate": "{{{depPrefix}}}{{{newDigest}}}  # {{{newValue}}}"
+    },
+    {
+      "description": "Update marketplace APM entries pinned to branches.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)apm\\.yml$/"],
+      "matchStrings": [
+        "(?<depPrefix>-[^\\S\\n]+name:[^\\S\\n]+[^\\n]+\\n[^\\S\\n]+source:[^\\S\\n]+(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\n[^\\S\\n]+subdir:[^\\S\\n]+(?<apmSubdir>[^\\n]+)\\n[^\\S\\n]+ref:[^\\S\\n]+)(?<currentDigest>[0-9a-f]{40})\\s+#\\s+(?<currentValue>[A-UW-Za-uw-z][A-Za-z0-9_./-]*|[vV][A-Za-z_/-][A-Za-z0-9_./-]*)"
       ],
       "datasourceTemplate": "git-refs",
-      "depNameTemplate": "{{{packageName}}}/{{{apmSubdir}}}",
       "packageNameTemplate": "https://github.com/{{{packageName}}}.git",
-      "depTypeTemplate": "apm"
+      "depNameTemplate": "{{{packageName}}}/{{{apmSubdir}}}",
+      "depTypeTemplate": "apm",
+      "autoReplaceStringTemplate": "{{{depPrefix}}}{{{newDigest}}}  # {{{currentValue}}}"
     }
   ],
   "packageRules": [
     {
-      "description": ["Group APM package updates together"],
+      "description": ["Group APM package updates together and keep them under manual review"],
       "groupName": "apm packages",
       "matchDepTypes": ["apm"],
       "labels": ["dependencies", "apm"],
-      "pinDigests": true
+      "automerge": false
+    },
+    {
+      "description": [
+        "Branch-tracked APM refs use git-refs, which has no release timestamp; skip the release-age delay and rely on manual review"
+      ],
+      "matchDepTypes": ["apm"],
+      "matchDatasources": ["git-refs"],
+      "minimumReleaseAge": "0"
     }
   ]
 }

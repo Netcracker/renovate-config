@@ -82,9 +82,18 @@ Add `"github>Netcracker/renovate-config:go-tidy"` only as an explicit repository
 
 ## `apm.json` preset
 
-[`apm.json`](./apm.json) detects APM package references in `apm.yml` files. It updates package references pinned to
-GitHub release tags, package references pinned to immutable Git SHAs with a source-ref comment, mutable package
-references that still need a SHA pin, and marketplace entries that use `source`, `subdir`, and `ref`.
+[`apm.json`](./apm.json) detects APM package references in `apm.yml` files and proposes semantic-version bumps for
+tag-tracked entries via the `github-tags` datasource. It covers the `dependencies.apm` list (`package#v1.2.0`) and the
+`marketplace.packages` block (`ref: v1.2.0`).
+
+Design notes:
+
+- `apm.yml` records only a version tag or a branch name. Resolved commit SHAs live in `apm.lock.yaml`, produced by
+  `apm install`, not in `apm.yml`.
+- Tag refs advance to newer semantic-version tags (for example `v0.1.0` → `v1.0.1`).
+- Branch refs (`package#main`, `ref: main`) are left untouched; a branch carries no version to bump.
+- When an entry still carries a legacy `#<sha>  # v0.1.0` pin, the first tag bump rewrites it to a clean `#v0.1.0` and
+  drops the SHA. The preset never writes a digest back into `apm.yml`.
 
 Use it from a repository-local config:
 
