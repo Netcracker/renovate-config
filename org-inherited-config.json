@@ -39,6 +39,12 @@
       "minimumReleaseAge": "0 days"
     },
     {
+      "description": ["Skip the release-age delay for in-house GitHub Actions/workflows"],
+      "matchDatasources": ["github-tags", "github-digest"],
+      "matchPackageNames": ["Netcracker/**", "netcracker/**"],
+      "minimumReleaseAge": "0 days"
+    },
+    {
       "description": ["Skip the release-age delay for Go toolchain updates (go and toolchain directives)"],
       "matchDatasources": ["golang-version"],
       "minimumReleaseAge": "0 days"
