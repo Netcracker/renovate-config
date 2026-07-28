@@ -1,0 +1,9 @@
+FROM golang:1.26.5-alpine3.22 AS builder
+
+# renovate: datasource=repology depName=alpine_3_22/build-base versioning=apk
+ARG BUILD_BASE_VERSION=0.5-r3
+
+FROM alpine:3.23.4
+
+# renovate: datasource=repology depName=alpine_3_23/busybox versioning=apk syncWith=alpine
+ARG BUSYBOX_VERSION=1.37.0-r31

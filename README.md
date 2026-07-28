@@ -81,6 +81,57 @@ For example, a Go repository that uses annotated tool versions can compose these
 
 Add `"github>Netcracker/renovate-config:go-tidy"` only as an explicit repository decision.
 
+## Update Alpine package annotations with the base image
+
+Use this feature when a Dockerfile uses an official Alpine image and pins APK package versions through Repology.
+
+Enable the `annotated-versions` preset:
+
+```json
+{
+  "extends": ["github>Netcracker/renovate-config:annotated-versions"]
+}
+```
+
+Add `syncWith=alpine` to each package annotation associated with the Alpine image:
+
+```dockerfile
+FROM alpine:3.24.1
+
+# renovate: datasource=repology depName=alpine_3_24/busybox versioning=apk syncWith=alpine
+ARG BUSYBOX_VERSION=1.37.0-r31
+```
+
+When Renovate updates Alpine 3.24 to 3.25, the same PR also makes this change:
+
+```dockerfile
+FROM alpine:3.25.0
+
+# renovate: datasource=repology depName=alpine_3_25/busybox versioning=apk syncWith=alpine
+ARG BUSYBOX_VERSION=1.37.0-r31
+```
+
+The synchronization changes the Alpine image and the Repology repository. It does not change the pinned package
+version. The Docker build verifies that the package version exists in the new Alpine release.
+
+Do not add `syncWith=alpine` to packages installed in derived images such as `golang:1.26-alpine3.24`. Their Alpine
+release is part of the derived image tag and may differ from the official Alpine image.
+
+A repository rule that groups all Docker updates can override the `alpine-release` group. Place this rule after any
+broader Docker grouping rules:
+
+```json
+{
+  "packageRules": [
+    {
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["alpine"],
+      "groupName": "alpine-release"
+    }
+  ]
+}
+```
+
 ## `test-pipelines.json` preset
 
 [`test-pipelines.json`](./test-pipelines.json) updates annotated `pipeline_branch` inputs in GitHub Actions workflows.

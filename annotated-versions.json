@@ -7,8 +7,22 @@
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)(?:Dockerfile|Containerfile)(?:\\.[^/]+)?$/"],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*ARG [A-Za-z_][A-Za-z0-9_]*[ =][\\\"']?(?<currentValue>[A-Za-z0-9][A-Za-z0-9._+-]*)[\\\"']?[^\\S\\r\\n]*"
+        "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?(?: syncWith=alpine)?[^\\S\\r\\n]*\\r?\\n[\\t ]*ARG [A-Za-z_][A-Za-z0-9_]*[ =][\\\"']?(?<currentValue>[A-Za-z0-9][A-Za-z0-9._+-]*)[\\\"']?[^\\S\\r\\n]*"
       ]
+    },
+    {
+      "description": "Keep Alpine Repology repositories in sync with the Alpine image.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/)(?:Dockerfile|Containerfile)(?:\\.[^/]+)?$/"],
+      "matchStrings": [
+        "# renovate: datasource=repology depName=alpine_(?<currentValue>\\d+_\\d+)/(?<alpinePackage>[^\\s]+) versioning=(?<packageVersioning>[^\\s]+) syncWith=alpine"
+      ],
+      "currentValueTemplate": "{{{ replace '_' '.' currentValue }}}",
+      "datasourceTemplate": "docker",
+      "depNameTemplate": "alpine",
+      "packageNameTemplate": "alpine",
+      "versioningTemplate": "docker",
+      "autoReplaceStringTemplate": "# renovate: datasource=repology depName=alpine_{{{newMajor}}}_{{{newMinor}}}/{{{alpinePackage}}} versioning={{{packageVersioning}}} syncWith=alpine"
     },
     {
       "description": "Update annotated next-line YAML and template version values.",
@@ -49,6 +63,14 @@
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*go install [^\\s@]+@(?<currentValue>v?\\d+\\.\\d+\\.\\d+(?:[-+][A-Za-z0-9._-]+)?)[^\\S\\r\\n]*"
       ]
+    }
+  ],
+  "packageRules": [
+    {
+      "description": ["Group Alpine image and synchronized Repology repository updates"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["alpine"],
+      "groupName": "alpine-release"
     }
   ]
 }
