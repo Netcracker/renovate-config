@@ -111,7 +111,9 @@ FROM alpine:3.25.0
 ARG BUSYBOX_VERSION=1.37.0-r31
 ```
 
-The synchronization changes the Alpine image and the Repology repository. It does not change the pinned package version. Repology does not provide release timestamps, so Alpine Repology updates bypass the organization release-age delay. Renovate does not try to add an image digest to the synchronization annotation because the annotation has no digest field. The Docker build verifies that the package version exists in the new Alpine release.
+The synchronization changes the Alpine image and the Repology repository. It does not change the pinned package version. Repology does not provide release timestamps, so Alpine Repology updates bypass the organization release-age delay.
+
+Renovate does not try to add an image digest to the synchronization annotation because the annotation has no digest field. The Docker build verifies that the package version exists in the new Alpine release.
 
 Do not add `syncWith=alpine` to packages installed in derived images such as `golang:1.26-alpine3.24`. Their Alpine
 release is part of the derived image tag and may differ from the official Alpine image.
