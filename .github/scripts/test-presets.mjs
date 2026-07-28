@@ -267,6 +267,7 @@ function assertAlpineRepologySync(config) {
   assert.equal(manager.depNameTemplate, 'alpine');
   assert.equal(manager.packageNameTemplate, 'alpine');
   assert.equal(manager.versioningTemplate, 'docker');
+  assert.equal(manager.depTypeTemplate, 'alpine-release-sync');
   assert.equal(manager.currentValueTemplate, "{{{ replace '_' '.' currentValue }}}");
   assert.equal(dependencies.length, 1, 'Only annotations marked with syncWith=alpine must be synchronized');
   assert.deepEqual(
@@ -304,6 +305,10 @@ function assertAlpineRepologySync(config) {
   assert.deepEqual(rule.matchDatasources, ['docker']);
   assert.deepEqual(rule.matchPackageNames, ['alpine']);
   assert.equal(rule.groupName, 'alpine-release');
+
+  const digestPinning = findRule(config, 'Disable digest pinning for Alpine repository synchronization');
+  assert.deepEqual(digestPinning.matchDepTypes, ['alpine-release-sync']);
+  assert.equal(digestPinning.pinDigests, false);
 
   const repologyReleaseAge = findRule(config, 'Bypass release age for Alpine Repology packages');
   assert.deepEqual(repologyReleaseAge.matchDatasources, ['repology']);
