@@ -7,6 +7,7 @@ const presetNames = [
   'go',
   'go-tidy',
   'netcracker-dependencies',
+  'test-pipelines',
   'annotated-versions',
   'grafana-plugins',
   'graylog-plugins',
@@ -42,6 +43,17 @@ function managerMatchesPath(manager, path) {
 
 function extract(manager, content) {
   return compileManager(manager).flatMap((regex) => [...content.matchAll(regex)].map((match) => match.groups));
+}
+
+function replaceRegexDependency(manager, content, dependencyIndex, newValue, newDigest) {
+  const matches = compileManager(manager).flatMap((regex) => [...content.matchAll(regex)]);
+  const match = matches[dependencyIndex];
+  assert.ok(match, `Dependency index ${dependencyIndex} was not found`);
+
+  const replacement = match[0]
+    .replace(match.groups.currentValue, newValue)
+    .replace(match.groups.currentDigest, newDigest);
+  return `${content.slice(0, match.index)}${replacement}${content.slice(match.index + match[0].length)}`;
 }
 
 function render(template, values) {
@@ -230,6 +242,51 @@ function assertAnnotatedVersions(config) {
   }
 }
 
+function assertTestPipelines(config) {
+  const manager = config.customManagers[0];
+  const fixture = readFixture('test-pipelines/workflows.yaml');
+  const dependencies = extract(manager, fixture);
+
+  assert.equal(managerMatchesPath(manager, '.github/workflows/integration-tests.yaml'), true);
+  assert.equal(managerMatchesPath(manager, '.github/workflows/run_tests.yml'), true);
+  assert.equal(managerMatchesPath(manager, 'docs/workflows.yaml'), false);
+  assert.equal(manager.datasourceTemplate, 'github-tags');
+
+  assert.deepEqual(
+    dependencies.map(({ depName, currentValue, currentDigest }) => [depName, currentValue, currentDigest]),
+    [
+      [
+        'Netcracker/qubership-test-pipelines',
+        'v1.14.1',
+        'ddc741b38bac5dc4834b8f6827c9f6d16abf0db8',
+      ],
+      [
+        'Netcracker/qubership-test-pipelines',
+        'v1.8.0',
+        '247c69038e00f2a9e283412e902555f84b16dab2',
+      ],
+      ['Netcracker/qubership-test-pipelines', 'v2', 'abcdef0'],
+    ]
+  );
+
+  const replacement = replaceRegexDependency(
+    manager,
+    fixture,
+    0,
+    'v1.15.0',
+    '0123456789abcdef0123456789abcdef01234567'
+  );
+  const updated = extract(manager, replacement);
+
+  assert.equal(updated.length, dependencies.length);
+  assert.equal(updated[0].currentValue, 'v1.15.0');
+  assert.equal(updated[0].currentDigest, '0123456789abcdef0123456789abcdef01234567');
+  assert.match(
+    replacement,
+    /pipeline_branch: '0123456789abcdef0123456789abcdef01234567' # v1\.15\.0 renovate: depName=Netcracker\/qubership-test-pipelines/
+  );
+}
+
 function assertGrafanaPlugins(config) {
   const manager = config.customManagers[0];
   const dependencies = extract(manager, readFixture('grafana-plugins/plugins.list'));
@@ -275,6 +332,7 @@ assertGitHubActionsPolicy(configs['github-actions']);
 assertGoPolicy(configs.go);
 assertGoTidyPolicy(configs['go-tidy']);
 assertNetcrackerPolicy(configs['netcracker-dependencies']);
+assertTestPipelines(configs['test-pipelines']);
 assertAnnotatedVersions(configs['annotated-versions']);
 assertGrafanaPlugins(configs['grafana-plugins']);
 assertGraylogPlugins(configs['graylog-plugins']);

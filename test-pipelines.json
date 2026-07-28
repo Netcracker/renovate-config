@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": ["Keep reusable test pipeline workflow references and pipeline_branch inputs aligned"],
+  "customManagers": [
+    {
+      "description": "Update annotated qubership-test-pipelines commit references.",
+      "customType": "regex",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "pipeline_branch:\\s+[\"'](?<currentDigest>[a-f0-9]+)[\"']\\s+#\\s*(?<currentValue>v\\S+)\\s+renovate:\\s+depName=(?<depName>\\S+)"
+      ],
+      "datasourceTemplate": "github-tags"
+    }
+  ]
+}

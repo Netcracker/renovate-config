@@ -57,6 +57,7 @@ a team-specific preset:
 - `go-tidy` runs `go mod tidy` after Go module updates.
 - `netcracker-dependencies` groups internal dependencies by ecosystem and removes their release-age delay.
 - `annotated-versions` updates explicitly annotated Docker, YAML, template, and Makefile values.
+- `test-pipelines` keeps reusable test pipeline workflow references and `pipeline_branch` inputs aligned.
 - `grafana-plugins` updates Grafana plugin ID and version pairs in `plugins.list`.
 - `graylog-plugins` updates GitHub release URLs for Graylog plugin JARs in `plugins.list`.
 - `apm` updates APM package references in `apm.yml`.
@@ -79,6 +80,25 @@ For example, a Go repository that uses annotated tool versions can compose these
 ```
 
 Add `"github>Netcracker/renovate-config:go-tidy"` only as an explicit repository decision.
+
+## `test-pipelines.json` preset
+
+[`test-pipelines.json`](./test-pipelines.json) updates annotated `pipeline_branch` inputs in GitHub Actions workflows.
+It complements Renovate's built-in `github-actions` manager, which updates the reusable workflow reference.
+
+Enable the preset in the repository Renovate configuration:
+
+```json
+{
+  "extends": ["github>Netcracker/renovate-config:test-pipelines"]
+}
+```
+
+Add the release tag and package annotation after each pinned `pipeline_branch` commit:
+
+```yaml
+pipeline_branch: 'ddc741b38bac5dc4834b8f6827c9f6d16abf0db8' # v1.14.1 renovate: depName=Netcracker/qubership-test-pipelines
+```
 
 ## `apm.json` preset
 
