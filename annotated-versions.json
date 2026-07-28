@@ -71,6 +71,12 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": ["alpine"],
       "groupName": "alpine-release"
+    },
+    {
+      "description": ["Bypass release age for Alpine Repology packages"],
+      "matchDatasources": ["repology"],
+      "matchPackageNames": ["/^alpine_\\d+_\\d+\\/.+$/"],
+      "minimumReleaseAge": "0 days"
     }
   ]
 }

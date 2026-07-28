@@ -24,7 +24,7 @@
     "grafana-plugins": {
       "defaultRegistryUrlTemplate": "https://grafana.com/api/plugins/{{packageName}}/versions",
       "format": "json",
-      "transformTemplates": ["{\"releases\": items.{\"version\": version, \"releaseTimestamp\": createdAt}}"]
+      "transformTemplates": ["{\"releases\": [items.{\"version\": version, \"releaseTimestamp\": createdAt}]}"]
     }
   }
 }

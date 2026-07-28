@@ -53,12 +53,12 @@ a team-specific preset:
 
 - `base` applies an explicit best-practices baseline, weekly schedule, dependency label, and semantic commit settings.
 - `github-actions` groups third-party and Netcracker actions separately, with major updates in separate groups.
-- `go` groups Kubernetes, OpenTelemetry, Prometheus, and Go toolchain updates. It does not group unrelated modules.
+- `go` groups Kubernetes and OpenShift, OpenTelemetry, Prometheus, and Go toolchain updates. It does not group unrelated modules.
 - `go-tidy` runs `go mod tidy` after Go module updates.
 - `netcracker-dependencies` groups internal dependencies by ecosystem and removes their release-age delay.
 - `annotated-versions` updates explicitly annotated Docker, YAML, template, and Makefile values.
 - `test-pipelines` keeps reusable test pipeline workflow references and `pipeline_branch` inputs aligned.
-- `grafana-plugins` updates Grafana plugin ID and version pairs in `plugins.list`.
+- `grafana-plugins` updates Grafana plugin ID and version pairs in `plugins.list`, including plugins whose Grafana API response contains only one release.
 - `graylog-plugins` updates GitHub release URLs for Graylog plugin JARs in `plugins.list`.
 - `apm` updates APM package references in `apm.yml`.
 
@@ -111,8 +111,7 @@ FROM alpine:3.25.0
 ARG BUSYBOX_VERSION=1.37.0-r31
 ```
 
-The synchronization changes the Alpine image and the Repology repository. It does not change the pinned package
-version. The Docker build verifies that the package version exists in the new Alpine release.
+The synchronization changes the Alpine image and the Repology repository. It does not change the pinned package version. Repology does not provide release timestamps, so Alpine Repology updates bypass the organization release-age delay. The Docker build verifies that the package version exists in the new Alpine release.
 
 Do not add `syncWith=alpine` to packages installed in derived images such as `golang:1.26-alpine3.24`. Their Alpine
 release is part of the derived image tag and may differ from the official Alpine image.

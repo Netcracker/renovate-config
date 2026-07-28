@@ -5,7 +5,7 @@
     {
       "description": ["Group Kubernetes Go modules"],
       "matchManagers": ["gomod"],
-      "matchPackageNames": ["k8s.io/**", "sigs.k8s.io/**"],
+      "matchPackageNames": ["k8s.io/**", "sigs.k8s.io/**", "github.com/openshift/**"],
       "groupName": "Kubernetes Go modules"
     },
     {
