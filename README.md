@@ -81,6 +81,23 @@ For example, a Go repository that uses annotated tool versions can compose these
 
 Add `"github>Netcracker/renovate-config:go-tidy"` only as an explicit repository decision.
 
+## Synchronizing Alpine Repology repositories
+
+The `annotated-versions` preset can update an Alpine base image and its release-specific Repology repository identifiers in one `alpine-release` PR. Add `syncWith=alpine` to each APK package annotation that follows an official `alpine` base image:
+
+```dockerfile
+FROM alpine:3.24.1
+
+# renovate: datasource=repology depName=alpine_3_24/busybox versioning=apk syncWith=alpine
+ARG BUSYBOX_VERSION=1.37.0-r31
+```
+
+When Renovate updates the image to Alpine 3.25, it also changes `alpine_3_24/busybox` to `alpine_3_25/busybox`. The package version remains unchanged so that the repository's Docker build can verify whether the exact pin is available in the new Alpine release.
+
+Use the marker only for packages installed in the official `alpine` image that Renovate updates in the same PR. Do not use it for packages installed in derived images such as `golang:1.26-alpine3.24`; those packages must follow the Alpine release embedded in the derived image tag.
+
+Repository-local package rules can override the preset's `alpine-release` group. If a repository has a catch-all Docker grouping rule, add a later rule that assigns Docker datasource package `alpine` to `alpine-release`.
+
 ## `test-pipelines.json` preset
 
 [`test-pipelines.json`](./test-pipelines.json) updates annotated `pipeline_branch` inputs in GitHub Actions workflows.

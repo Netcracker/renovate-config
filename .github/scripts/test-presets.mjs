@@ -242,6 +242,64 @@ function assertAnnotatedVersions(config) {
   }
 }
 
+function assertAlpineRepologySync(config) {
+  const managerDescription = 'Keep Alpine Repology repositories in sync with the Alpine image.';
+  const manager = config.customManagers.find((candidate) => candidate.description === managerDescription);
+  assert.ok(manager, `Custom manager not found: ${managerDescription}`);
+
+  const fixture = readFixture('annotated-versions/Dockerfile.alpine-sync');
+  const dependencies = extract(manager, fixture);
+  const argManager = config.customManagers.find(
+    (candidate) => candidate.description === 'Update annotated Docker ARG version values.'
+  );
+  const packageDependencies = extract(argManager, fixture);
+
+  assert.equal(managerMatchesPath(manager, 'Dockerfile'), true);
+  assert.equal(managerMatchesPath(manager, 'containers/Containerfile.runtime'), true);
+  assert.equal(managerMatchesPath(manager, 'containers/image.yaml'), false);
+  assert.equal(manager.datasourceTemplate, 'docker');
+  assert.equal(manager.depNameTemplate, 'alpine');
+  assert.equal(manager.packageNameTemplate, 'alpine');
+  assert.equal(manager.versioningTemplate, 'docker');
+  assert.equal(manager.currentValueTemplate, "{{{ replace '_' '.' currentValue }}}");
+  assert.equal(dependencies.length, 1, 'Only annotations marked with syncWith=alpine must be synchronized');
+  assert.deepEqual(
+    packageDependencies.map(({ depName, currentValue }) => [depName, currentValue]),
+    [
+      ['alpine_3_22/build-base', '0.5-r3'],
+      ['alpine_3_23/busybox', '1.37.0-r31'],
+    ],
+    'The sync marker must not hide the APK package dependency'
+  );
+  assert.deepEqual(
+    {
+      currentValue: dependencies[0].currentValue,
+      packageName: dependencies[0].alpinePackage,
+      packageVersioning: dependencies[0].packageVersioning,
+    },
+    {
+      currentValue: '3_23',
+      packageName: 'busybox',
+      packageVersioning: 'apk',
+    }
+  );
+
+  const replacement = render(manager.autoReplaceStringTemplate, {
+    ...dependencies[0],
+    newMajor: '3',
+    newMinor: '25',
+  });
+  assert.equal(
+    replacement,
+    '# renovate: datasource=repology depName=alpine_3_25/busybox versioning=apk syncWith=alpine'
+  );
+
+  const rule = findRule(config, 'Group Alpine image and synchronized Repology repository updates');
+  assert.deepEqual(rule.matchDatasources, ['docker']);
+  assert.deepEqual(rule.matchPackageNames, ['alpine']);
+  assert.equal(rule.groupName, 'alpine-release');
+}
+
 function assertTestPipelines(config) {
   const manager = config.customManagers[0];
   const fixture = readFixture('test-pipelines/workflows.yaml');
@@ -334,6 +392,7 @@ assertGoTidyPolicy(configs['go-tidy']);
 assertNetcrackerPolicy(configs['netcracker-dependencies']);
 assertTestPipelines(configs['test-pipelines']);
 assertAnnotatedVersions(configs['annotated-versions']);
+assertAlpineRepologySync(configs['annotated-versions']);
 assertGrafanaPlugins(configs['grafana-plugins']);
 assertGraylogPlugins(configs['graylog-plugins']);
 assertNoAutomerge(configs);
