@@ -1,180 +1,215 @@
 import fs from 'node:fs';
 
 const config = JSON.parse(fs.readFileSync('apm.json', 'utf8'));
+
 const apmPackageRule = config.packageRules.find((rule) => rule.matchDepTypes?.includes('apm'));
-const gitRefManager = config.customManagers.find((manager) =>
-  manager.description === 'Pin and update APM dependencies that reference Git refs.'
+const depsManager = config.customManagers.find(
+  (manager) => manager.description === 'Update APM dependencies pinned to version tags with #.'
 );
-const marketplaceManager = config.customManagers.find((manager) =>
-  manager.description === 'Update marketplace APM package entries pinned to immutable Git refs.'
+const marketReleaseManager = config.customManagers.find(
+  (manager) => manager.description === 'Update marketplace APM entries pinned to release tags.'
+);
+const marketBranchManager = config.customManagers.find(
+  (manager) => manager.description === 'Update marketplace APM entries pinned to branches.'
 );
 
 if (!apmPackageRule) {
   throw new Error('APM package rule was not found');
 }
-
 if (apmPackageRule.groupName !== 'apm packages') {
   throw new Error('APM package rule must group package updates');
 }
-
-if (!gitRefManager) {
-  throw new Error('Git ref APM custom manager was not found');
+if (apmPackageRule.pinDigests === true) {
+  throw new Error('APM package rule must not pin digests in dependencies; SHAs there belong in apm.lock');
+}
+if (apmPackageRule.automerge !== false) {
+  throw new Error('APM updates must stay under manual review (automerge: false)');
 }
 
-if (!marketplaceManager) {
-  throw new Error('Marketplace APM custom manager was not found');
+for (const [name, manager, datasource] of [
+  ['dependencies', depsManager, 'github-tags'],
+  ['marketplace release', marketReleaseManager, 'github-tags'],
+  ['marketplace branch', marketBranchManager, 'git-refs'],
+]) {
+  if (!manager) {
+    throw new Error(`${name} APM custom manager was not found`);
+  }
+  if (manager.datasourceTemplate !== datasource) {
+    throw new Error(`${name} APM manager must use the ${datasource} datasource, got ${manager.datasourceTemplate}`);
+  }
+}
+for (const manager of [depsManager, marketReleaseManager]) {
+  if (manager.versioningTemplate !== 'semver') {
+    throw new Error(`Tag-tracking APM manager ${JSON.stringify(manager.description)} must use semver versioning`);
+  }
 }
 
-const regex = new RegExp(marketplaceManager.matchStrings[0], 'g');
-const fixture = `marketplace:
+function hasNamedDigest(manager) {
+  return manager.matchStrings.some((matchString) => /\(\?<currentDigest>/.test(matchString));
+}
+
+// Dependencies (apm.lock covers them): apm.yml keeps no SHA, so the manager must not read or emit a digest.
+if (hasNamedDigest(depsManager)) {
+  throw new Error('Dependencies manager must not capture currentDigest; SHAs there live in apm.lock, not apm.yml');
+}
+if (depsManager.autoReplaceStringTemplate.includes('newDigest')) {
+  throw new Error('Dependencies manager must not write a digest back into apm.yml');
+}
+
+// Marketplace (not covered by any lockfile): the SHA pin is the lock, so both managers keep and update the digest.
+for (const manager of [marketReleaseManager, marketBranchManager]) {
+  if (!hasNamedDigest(manager)) {
+    throw new Error(`Marketplace manager ${JSON.stringify(manager.description)} must keep the SHA pin (currentDigest)`);
+  }
+  if (!manager.autoReplaceStringTemplate.includes('newDigest')) {
+    throw new Error(`Marketplace manager ${JSON.stringify(manager.description)} must update the digest via newDigest`);
+  }
+}
+
+function applyTemplate(manager, match, { newDigest, newValue }) {
+  const templateValues = { ...match.groups, newDigest, newValue };
+  return manager.autoReplaceStringTemplate.replaceAll(/\{\{\{([^}]+)}}}/g, (_, field) => templateValues[field] ?? '');
+}
+
+function firstMatch(manager, content) {
+  return new RegExp(manager.matchStrings[0], 'g').exec(content);
+}
+
+function replaceFirstMatch(manager, content, update) {
+  const match = firstMatch(manager, content);
+  if (!match) {
+    throw new Error(`Manager ${JSON.stringify(manager.description)} matched nothing in the fixture`);
+  }
+  const replacement = applyTemplate(manager, match, update);
+  return `${content.slice(0, match.index)}${replacement}${content.slice(match.index + match[0].length)}`;
+}
+
+function countMatches(manager, content) {
+  return [...content.matchAll(new RegExp(manager.matchStrings[0], 'g'))].length;
+}
+
+const oldDigest = '96f42e9a2a694632f3ef355ce45ad33c13906220';
+const newDigest = 'f7d7b53f2eb840645236cd46d60750db53f0ef6e';
+
+// --- Dependencies: a legacy digest pin collapses to a clean tag on the first bump. ---
+const legacyHashFixture = `dependencies:
+  apm:
+    - Netcracker/qubership-ai-agent-telemetry/agent-packages/ai-agent-telemetry#${oldDigest}  # v0.1.0
+    - Netcracker/qubership-ai-packages/agent-packages/apm-authoring#main
+`;
+const bumpedHash = replaceFirstMatch(depsManager, legacyHashFixture, { newValue: 'v1.0.1' });
+if (!bumpedHash.includes('/ai-agent-telemetry#v1.0.1')) {
+  throw new Error(`Bumped dependency must become a clean tag, got:\n${bumpedHash}`);
+}
+if (/[0-9a-f]{40}/.test(bumpedHash) || bumpedHash.includes('  # ')) {
+  throw new Error(`Bumped dependency must drop the digest and its comment, got:\n${bumpedHash}`);
+}
+if (countMatches(depsManager, legacyHashFixture) !== countMatches(depsManager, bumpedHash)) {
+  throw new Error('Bumping a dependency must preserve the dependency count');
+}
+
+const cleanHashFixture = `dependencies:
+  apm:
+    - Netcracker/qubership-ai-agent-telemetry/agent-packages/ai-agent-telemetry#v0.1.0
+`;
+const bumpedClean = replaceFirstMatch(depsManager, cleanHashFixture, { newValue: 'v1.0.1' });
+if (!bumpedClean.includes('/ai-agent-telemetry#v1.0.1') || /[0-9a-f]{40}/.test(bumpedClean)) {
+  throw new Error(`Clean dependency tag must bump without gaining a digest, got:\n${bumpedClean}`);
+}
+
+// A branch dependency is recognized but never regains a digest.
+const branchDependencyFixture = `dependencies:
+  apm:
+    - Netcracker/qubership-ai-packages/agent-packages/apm-authoring#${oldDigest}  # main
+`;
+const branchDependencyMatch = firstMatch(depsManager, branchDependencyFixture);
+if (branchDependencyMatch?.groups.currentValue !== 'main') {
+  throw new Error(`Dependencies manager must read the branch name, got ${JSON.stringify(branchDependencyMatch?.groups.currentValue)}`);
+}
+const collapsedBranch = applyTemplate(depsManager, branchDependencyMatch, { newValue: 'main' });
+if (/[0-9a-f]{40}/.test(collapsedBranch) || collapsedBranch.includes('  # ')) {
+  throw new Error(`Collapsing a branch dependency must drop the digest, got: ${JSON.stringify(collapsedBranch)}`);
+}
+
+// The invalid `@alias` shorthand (rejected by APM 0.26.0) must not be extracted by any manager.
+const atShorthandFixture = `dependencies:
+  apm:
+    - Netcracker/qubership-ai-agent-telemetry/agent-packages/ai-agent-telemetry@v1.2.0
+`;
+for (const manager of config.customManagers) {
+  const match = firstMatch(manager, atShorthandFixture);
+  if (match?.groups?.currentValue === 'v1.2.0') {
+    throw new Error(`APM manager ${JSON.stringify(manager.description)} must not extract the invalid @v1.2.0 shorthand`);
+  }
+}
+
+// --- Marketplace release entry: keep the SHA pin and update both digest and tag. ---
+const marketReleaseFixture = `marketplace:
   packages:
     - name: ai-agent-telemetry
       source: Netcracker/qubership-ai-agent-telemetry
       subdir: agent-packages/ai-agent-telemetry
-      ref: c9ab85efe02149166e385f5962e1735d531e64d7  # main
-      tags: ["topic:observability", "activity:telemetry", "audience:public"]
+      ref: ${oldDigest}  # v0.1.0
+      tags: ["topic:observability"]
+`;
+const releaseMatch = firstMatch(marketReleaseManager, marketReleaseFixture);
+if (!releaseMatch) {
+  throw new Error('Marketplace release manager must match a version-tag entry');
+}
+if (releaseMatch.groups.currentValue !== 'v0.1.0' || releaseMatch.groups.currentDigest !== oldDigest) {
+  throw new Error(`Marketplace release manager captured ${JSON.stringify(releaseMatch.groups)}`);
+}
+if (releaseMatch.groups.packageName !== 'Netcracker/qubership-ai-agent-telemetry') {
+  throw new Error(`Marketplace release packageName was ${JSON.stringify(releaseMatch.groups.packageName)}`);
+}
+const bumpedRelease = replaceFirstMatch(marketReleaseManager, marketReleaseFixture, { newDigest, newValue: 'v1.0.1' });
+if (!bumpedRelease.includes(`ref: ${newDigest}  # v1.0.1`)) {
+  throw new Error(`Marketplace release bump must update both digest and tag, got:\n${bumpedRelease}`);
+}
+if (bumpedRelease.includes(oldDigest)) {
+  throw new Error(`Marketplace release bump must replace the old digest, got:\n${bumpedRelease}`);
+}
+if (firstMatch(marketReleaseManager, marketReleaseFixture.replace('# v0.1.0', '# main'))) {
+  throw new Error('Marketplace release manager must not match a branch ref');
+}
 
-    - name: ai-agent-telemetry-configure
+// The full semver range (prerelease and build metadata, together) must be accepted.
+for (const value of ['v1.2.3', 'v1.2.3-rc.1', 'v1.2.3+build.4', 'v1.2.3-rc.1+build.4']) {
+  const fixture = marketReleaseFixture.replace('# v0.1.0', `# ${value}`);
+  const match = firstMatch(marketReleaseManager, fixture);
+  if (match?.groups.currentValue !== value) {
+    throw new Error(`Marketplace release manager must capture ${JSON.stringify(value)}, got ${JSON.stringify(match?.groups.currentValue)}`);
+  }
+}
+
+// --- Marketplace branch entry: keep the SHA pin, update the digest, keep the branch comment. ---
+const marketBranchFixture = `marketplace:
+  packages:
+    - name: ai-agent-telemetry
       source: Netcracker/qubership-ai-agent-telemetry
-      subdir: agent-packages/ai-agent-telemetry-configure
-      ref: c9ab85efe02149166e385f5962e1735d531e64d7  # main
-      tags: ["topic:observability", "activity:telemetry", "audience:public"]
+      subdir: agent-packages/ai-agent-telemetry
+      ref: ${oldDigest}  # main
 `;
-
-const matches = [...fixture.matchAll(regex)];
-const depNames = matches.map((match) => `${match.groups.packageName}/${match.groups.apmSubdir}`);
-
-const expected = [
-  'Netcracker/qubership-ai-agent-telemetry/agent-packages/ai-agent-telemetry',
-  'Netcracker/qubership-ai-agent-telemetry/agent-packages/ai-agent-telemetry-configure',
-];
-
-if (JSON.stringify(depNames) !== JSON.stringify(expected)) {
-  throw new Error(`Marketplace APM regex matched ${JSON.stringify(depNames)}, expected ${JSON.stringify(expected)}`);
+const branchMatch = firstMatch(marketBranchManager, marketBranchFixture);
+if (!branchMatch || branchMatch.groups.currentValue !== 'main' || branchMatch.groups.currentDigest !== oldDigest) {
+  throw new Error(`Marketplace branch manager captured ${JSON.stringify(branchMatch?.groups)}`);
+}
+const bumpedBranch = replaceFirstMatch(marketBranchManager, marketBranchFixture, { newDigest });
+if (!bumpedBranch.includes(`ref: ${newDigest}  # main`) || bumpedBranch.includes(oldDigest)) {
+  throw new Error(`Marketplace branch bump must update the digest and keep the branch, got:\n${bumpedBranch}`);
+}
+if (firstMatch(marketBranchManager, marketReleaseFixture)) {
+  throw new Error('Marketplace branch manager must not match a version-tag ref');
 }
 
-for (const match of matches) {
-  if (!match[0].startsWith('- name:')) {
-    throw new Error(`Marketplace APM regex must match a complete package item, got ${JSON.stringify(match[0])}`);
-  }
+// Captured values must span the whole ref token, so a malformed value never leaves a suffix behind.
+const overlongRelease = firstMatch(marketReleaseManager, marketReleaseFixture.replace('# v0.1.0', '# v0.1.0.1'));
+if (overlongRelease?.groups.currentValue !== 'v0.1.0.1') {
+  throw new Error(`Release manager must capture the whole token, got ${JSON.stringify(overlongRelease?.groups.currentValue)}`);
+}
+const dottedBranch = firstMatch(marketBranchManager, marketBranchFixture.replace('# main', '# main.foo'));
+if (dottedBranch?.groups.currentValue !== 'main.foo') {
+  throw new Error(`Branch manager must capture the whole token, got ${JSON.stringify(dottedBranch?.groups.currentValue)}`);
 }
 
-const digestFixture = `dependencies:
-  apm:
-    - Netcracker/qubership-ai-packages/agent-packages/apm-authoring#0ce60887d9c585522cfb58b1d9647ebe595fe569  # main
-    - Netcracker/qubership-ai-packages/agent-packages/adr-authoring#0ce60887d9c585522cfb58b1d9647ebe595fe569  # main
-`;
-
-function replaceDigest(manager, content, dependencyIndex, newDigest, newValue) {
-  const managerRegex = new RegExp(manager.matchStrings[0], 'g');
-  const managerMatches = [...content.matchAll(managerRegex)];
-  const match = managerMatches[dependencyIndex];
-
-  if (!match) {
-    throw new Error(`Dependency index ${dependencyIndex} was not found`);
-  }
-
-  let replacement;
-  if (manager.autoReplaceStringTemplate) {
-    const templateValues = {
-      depName: match.groups.depName,
-      packageName: match.groups.packageName,
-      currentValue: match.groups.currentValue,
-      currentDigest: match.groups.currentDigest,
-      indentation: match.groups.indentation,
-      newDigest,
-      newValue,
-    };
-    replacement = manager.autoReplaceStringTemplate.replaceAll(
-      /\{\{\{([^}]+)}}}/g,
-      (_, field) => templateValues[field] ?? ''
-    );
-  } else {
-    replacement = match[0].replace(match.groups.currentDigest, newDigest);
-  }
-
-  return `${content.slice(0, match.index)}${replacement}${content.slice(match.index + match[0].length)}`;
-}
-
-function assertDependencyCountPreserved(manager, content, dependencyIndex) {
-  const managerRegex = new RegExp(manager.matchStrings[0], 'g');
-  const before = [...content.matchAll(managerRegex)];
-  const updated = replaceDigest(manager, content, dependencyIndex, 'b3a0a1582ab3728efdd52c6765f51a6bc75d51af');
-  const after = [...updated.matchAll(managerRegex)];
-
-  if (after.length !== before.length) {
-    throw new Error(`Digest replacement changed dependency count from ${before.length} to ${after.length}`);
-  }
-}
-
-assertDependencyCountPreserved(gitRefManager, digestFixture, 1);
-assertDependencyCountPreserved(marketplaceManager, fixture, 0);
-
-const versionedRefFixture = `dependencies:
-  apm:
-    - Netcracker/qubership-ai-agent-telemetry/agent-packages/ai-agent-telemetry#96f42e9a2a694632f3ef355ce45ad33c13906220  # v0.1.0
-`;
-for (const newValue of ['v0.2.0', 'v1.0.0']) {
-  const updatedVersionedRef = replaceDigest(
-    gitRefManager,
-    versionedRefFixture,
-    0,
-    'f7d7b53f2eb840645236cd46d60750db53f0ef6e',
-    newValue
-  );
-  const updatedVersionedMatch = [
-    ...updatedVersionedRef.matchAll(new RegExp(gitRefManager.matchStrings[0], 'g')),
-  ][0];
-
-  if (updatedVersionedMatch?.groups.currentValue !== newValue) {
-    throw new Error(
-      `Versioned Git ref replacement kept ${JSON.stringify(updatedVersionedMatch?.groups.currentValue)}, expected ${JSON.stringify(newValue)}`
-    );
-  }
-}
-
-const supportedTemplateFields = new Set([
-  'currentDigest',
-  'currentValue',
-  'datasource',
-  'depName',
-  'depType',
-  'extractVersion',
-  'indentation',
-  'newDigest',
-  'newValue',
-  'packageName',
-  'registryUrl',
-  'versioning',
-]);
-const mutableTemplateFields = [...gitRefManager.autoReplaceStringTemplate.matchAll(/\{\{\{([^}]+)}}}/g)].map(
-  (match) => match[1]
-);
-const unsupportedTemplateFields = mutableTemplateFields.filter((field) => !supportedTemplateFields.has(field));
-
-if (unsupportedTemplateFields.length > 0) {
-  throw new Error(`Mutable Git ref replacement uses unsupported fields: ${unsupportedTemplateFields.join(', ')}`);
-}
-
-const mutableFixture = `dependencies:
-  apm:
-    - Netcracker/example/agent-packages/example#main
-`;
-const mutableRegex = new RegExp(gitRefManager.matchStrings[0], 'g');
-const mutableMatch = [...mutableFixture.matchAll(mutableRegex)][0];
-const mutableValues = {
-  ...mutableMatch.groups,
-  newDigest: '4594b3b9d09c066ec549f4b6cee2eb1266c7f948',
-  newValue: mutableMatch.groups.currentValue,
-};
-const pinnedDependency = gitRefManager.autoReplaceStringTemplate.replaceAll(
-  /\{\{\{([^}]+)}}}/g,
-  (_, field) => mutableValues[field] ?? ''
-);
-const pinnedFixture = `${mutableFixture.slice(0, mutableMatch.index)}${pinnedDependency}${mutableFixture.slice(
-  mutableMatch.index + mutableMatch[0].length
-)}`;
-
-if ([...pinnedFixture.matchAll(new RegExp(gitRefManager.matchStrings[0], 'g'))].length !== 1) {
-  throw new Error('Pinned mutable Git ref must still be detected by the manager that pinned it');
-}
+console.log('APM regex behavior checks passed');
