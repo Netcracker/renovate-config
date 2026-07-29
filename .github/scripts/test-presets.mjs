@@ -30,14 +30,26 @@ function findRule(config, description) {
   return rule;
 }
 
+function ruleMatchesDependency(rule, dependency) {
+  return [
+    ['matchManagers', dependency.manager],
+    ['matchDatasources', dependency.datasource],
+    ['matchPackageNames', dependency.packageName ?? dependency.depName],
+    ['matchDepNames', dependency.depName],
+  ].every(([matcher, value]) => !rule[matcher] || rule[matcher].includes(value));
+}
+
 function compileManager(manager) {
   return manager.matchStrings.map((matchString) => new RegExp(matchString, 'g'));
 }
 
 function managerMatchesPath(manager, path) {
   return manager.managerFilePatterns.some((pattern) => {
-    assert.match(pattern, /^\/.+\/$/, `Test runner does not support non-regex file pattern: ${pattern}`);
-    return new RegExp(pattern.slice(1, -1)).test(path);
+    const negative = pattern.startsWith('!');
+    const regexPattern = negative ? pattern.slice(1) : pattern;
+    assert.match(regexPattern, /^\/.+\/$/, `Test runner does not support non-regex file pattern: ${pattern}`);
+    const matched = new RegExp(regexPattern.slice(1, -1)).test(path);
+    return negative ? !matched : matched;
   });
 }
 
@@ -78,7 +90,17 @@ function assertGitHubActionsPolicy(config) {
   const majorNetcracker = findRule(config, 'Group Netcracker GitHub Actions major updates separately');
   const nonMajorUpdateTypes = ['minor', 'patch', 'pin', 'digest', 'pinDigest'];
   assert.deepEqual(thirdParty.matchManagers, ['github-actions']);
+  const thirdPartyDepNames = [
+    '!go',
+    '!golang',
+    '!docker.io/library/golang',
+    '!index.docker.io/library/golang',
+    '!registry-1.docker.io/library/golang',
+  ];
   assert.deepEqual(thirdParty.matchPackageNames, ['!Netcracker/**', '!netcracker/**']);
+  assert.deepEqual(majorThirdParty.matchPackageNames, ['!Netcracker/**', '!netcracker/**']);
+  assert.deepEqual(thirdParty.matchDepNames, thirdPartyDepNames);
+  assert.deepEqual(majorThirdParty.matchDepNames, thirdPartyDepNames);
   assert.deepEqual(netcracker.matchPackageNames, ['Netcracker/**', 'netcracker/**']);
   for (const rule of [thirdParty, netcracker]) {
     assert.deepEqual(rule.matchUpdateTypes, nonMajorUpdateTypes);
@@ -94,11 +116,13 @@ function assertGoPolicy(config) {
     'Group Kubernetes Go modules',
     'Group OpenTelemetry Go modules',
     'Group Prometheus Go modules',
-    'Group Go toolchain updates',
+    'Group Go toolchain versions',
+    'Group explicit GitHub Actions Go versions with Go toolchain updates',
+    'Group official Go builder images with Go toolchain updates',
   ]) {
     findRule(config, description);
   }
-  assert.equal(config.packageRules.length, 4, 'go.json must not group unrelated Go dependencies');
+  assert.equal(config.packageRules.length, 6, 'go.json must not group unrelated Go dependencies');
   const kubernetes = findRule(config, 'Group Kubernetes Go modules');
   assert.deepEqual(kubernetes.matchPackageNames, [
     'k8s.io/**',
@@ -110,6 +134,57 @@ function assertGoPolicy(config) {
     'go.opentelemetry.io/**',
     'github.com/open-telemetry/**',
   ]);
+
+  const toolchain = findRule(config, 'Group Go toolchain versions');
+  assert.equal(
+    ruleMatchesDependency(toolchain, {
+      manager: 'gomod',
+      datasource: 'golang-version',
+      depName: 'go',
+    }),
+    true,
+    'go.mod Go versions must join the Go toolchain group'
+  );
+
+  const setupGoVersion = findRule(config, 'Group explicit GitHub Actions Go versions with Go toolchain updates');
+  assert.equal(
+    ruleMatchesDependency(setupGoVersion, {
+      manager: 'github-actions',
+      datasource: 'github-releases',
+      depName: 'go',
+      packageName: 'actions/go-versions',
+    }),
+    true,
+    'Explicit actions/setup-go Go versions must join the Go toolchain group'
+  );
+
+  const builderImage = findRule(config, 'Group official Go builder images with Go toolchain updates');
+  for (const depName of [
+    'golang',
+    'docker.io/library/golang',
+    'index.docker.io/library/golang',
+    'registry-1.docker.io/library/golang',
+  ]) {
+    assert.equal(
+      ruleMatchesDependency(builderImage, {
+        manager: 'dockerfile',
+        datasource: 'docker',
+        depName,
+        packageName: depName,
+      }),
+      true,
+      `The official ${depName} image must join the Go toolchain group`
+    );
+  }
+  assert.equal(
+    ruleMatchesDependency(builderImage, {
+      manager: 'dockerfile',
+      datasource: 'docker',
+      depName: 'alpine',
+    }),
+    false,
+    'Unrelated Docker images must stay outside the Go toolchain group'
+  );
 }
 
 function assertGoTidyPolicy(config) {
@@ -194,6 +269,22 @@ function assertAnnotatedVersions(config) {
       'semver',
     ],
     [
+      'annotated-versions/variables.mk',
+      'Update annotated version variables in Makefiles and environment files.',
+      'sigs.k8s.io/controller-tools',
+      'v0.20.0',
+      undefined,
+      'semver',
+    ],
+    [
+      'annotated-versions/kind.env',
+      'Update annotated version variables in Makefiles and environment files.',
+      'Netcracker/qubership-opensearch',
+      '2.3.0',
+      undefined,
+      'semver',
+    ],
+    [
       'annotated-versions/monitoring/templates/grafana-image.tpl',
       'Update annotated image versions in Helm print templates.',
       'quay.io/grafana-operator/grafana-operator',
@@ -246,6 +337,23 @@ function assertAnnotatedVersions(config) {
     assert.equal(matches[0].dependency.packageName, packageName);
     assert.equal(matches[0].dependency.versioning, versioning);
   }
+
+  const overlappingPath = 'annotated-versions/.env.mk';
+  const overlappingContent =
+    '# renovate: datasource=github-releases depName=Netcracker/example versioning=semver\nVERSION=1.2.3\n';
+  const overlappingMatches = config.customManagers
+    .filter((manager) => managerMatchesPath(manager, overlappingPath))
+    .flatMap((manager) => extract(manager, overlappingContent));
+  assert.equal(overlappingMatches.length, 1, `${overlappingPath} must be handled by only one custom manager`);
+
+  const hiddenMakePath = 'annotated-versions/.tools.mk';
+  const hiddenMakeContent =
+    '# renovate: datasource=go depName=sigs.k8s.io/controller-tools versioning=semver\n' +
+    'go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.1\n';
+  const hiddenMakeMatches = config.customManagers
+    .filter((manager) => managerMatchesPath(manager, hiddenMakePath))
+    .flatMap((manager) => extract(manager, hiddenMakeContent));
+  assert.equal(hiddenMakeMatches.length, 1, `${hiddenMakePath} must preserve hidden Makefile support`);
 }
 
 function assertAlpineRepologySync(config) {
