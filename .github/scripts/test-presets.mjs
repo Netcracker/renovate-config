@@ -44,14 +44,13 @@ function compileManager(manager) {
 }
 
 function managerMatchesPath(manager, path) {
-  const matches = (pattern) => {
-    const regexPattern = pattern.startsWith('!') ? pattern.slice(1) : pattern;
+  return manager.managerFilePatterns.some((pattern) => {
+    const negative = pattern.startsWith('!');
+    const regexPattern = negative ? pattern.slice(1) : pattern;
     assert.match(regexPattern, /^\/.+\/$/, `Test runner does not support non-regex file pattern: ${pattern}`);
-    return new RegExp(regexPattern.slice(1, -1)).test(path);
-  };
-  const positivePatterns = manager.managerFilePatterns.filter((pattern) => !pattern.startsWith('!'));
-  const negativePatterns = manager.managerFilePatterns.filter((pattern) => pattern.startsWith('!'));
-  return positivePatterns.some(matches) && !negativePatterns.some(matches);
+    const matched = new RegExp(regexPattern.slice(1, -1)).test(path);
+    return negative ? !matched : matched;
+  });
 }
 
 function extract(manager, content) {
@@ -271,7 +270,7 @@ function assertAnnotatedVersions(config) {
     ],
     [
       'annotated-versions/variables.mk',
-      'Update annotated version variables in Makefiles.',
+      'Update annotated version variables in Makefiles and environment files.',
       'sigs.k8s.io/controller-tools',
       'v0.20.0',
       undefined,
@@ -279,7 +278,7 @@ function assertAnnotatedVersions(config) {
     ],
     [
       'annotated-versions/kind.env',
-      'Update annotated version variables in environment files.',
+      'Update annotated version variables in Makefiles and environment files.',
       'Netcracker/qubership-opensearch',
       '2.3.0',
       undefined,
