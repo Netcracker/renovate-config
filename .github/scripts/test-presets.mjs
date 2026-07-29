@@ -243,9 +243,8 @@ function assertRepositoryPolicy(config) {
 }
 
 function assertAnnotatedVersions(config) {
-  const alpineSyncManagerDescription = 'Keep Alpine Repology repositories in sync with the Alpine image.';
   const annotatedManagers = config.customManagers.filter(
-    (manager) => manager.description !== alpineSyncManagerDescription
+    (manager) => manager.depTypeTemplate === 'annotated-version'
   );
   assert.equal(annotatedManagers.length, 7, 'All version-only annotation managers must be covered');
   for (const manager of annotatedManagers) {
@@ -315,7 +314,7 @@ function assertAnnotatedVersions(config) {
       manager: 'custom.regex',
       datasource: 'docker',
       depName: 'Netcracker/example',
-      depType: 'docker-image-with-digest',
+      depType: 'annotated-docker-image',
       expectedPinDigests: true,
     },
     {
@@ -458,6 +457,82 @@ function assertAnnotatedVersions(config) {
     .filter((manager) => managerMatchesPath(manager, hiddenMakePath))
     .flatMap((manager) => extract(manager, hiddenMakeContent));
   assert.equal(hiddenMakeMatches.length, 1, `${hiddenMakePath} must preserve hidden Makefile support`);
+
+  const digestManagerDescription = 'Update digest-pinned images in Helm print templates.';
+  const digestManager = config.customManagers.find(
+    (manager) => manager.description === digestManagerDescription
+  );
+  assert.ok(digestManager, `Custom manager not found: ${digestManagerDescription}`);
+  assert.equal(digestManager.depTypeTemplate, 'annotated-docker-image');
+
+  const digestFixturePath =
+    'annotated-versions/logging/templates/graylog-image-digest.tpl';
+  const digestFixture = readFixture(digestFixturePath);
+  const digestMatches = config.customManagers
+    .filter((manager) => managerMatchesPath(manager, digestFixturePath))
+    .flatMap((manager) =>
+      extract(manager, digestFixture).map((dependency) => ({ dependency, manager }))
+    );
+  assert.equal(digestMatches.length, 1, `${digestFixturePath} must contain exactly one annotated dependency`);
+  assert.equal(digestMatches[0].manager.description, digestManagerDescription);
+  assert.deepEqual(
+    {
+      depName: digestMatches[0].dependency.depName,
+      datasource: digestMatches[0].dependency.datasource,
+      currentValue: digestMatches[0].dependency.currentValue,
+      currentDigest: digestMatches[0].dependency.currentDigest,
+    },
+    {
+      depName: 'graylog/graylog',
+      datasource: 'docker',
+      currentValue: '5.2.12',
+      currentDigest:
+        'sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    }
+  );
+
+  const updatedDigestFixture = replaceRegexDependency(
+    digestManager,
+    digestFixture,
+    0,
+    '5.2.13',
+    'sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789'
+  );
+  const updatedDigestDependencies = extract(digestManager, updatedDigestFixture);
+  assert.equal(updatedDigestDependencies.length, 1);
+  assert.equal(updatedDigestDependencies[0].currentValue, '5.2.13');
+  assert.equal(
+    updatedDigestDependencies[0].currentDigest,
+    'sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789'
+  );
+  assert.match(
+    updatedDigestFixture,
+    /graylog\/graylog:5\.2\.13@sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789/
+  );
+
+  const digestOnlyFixture = replaceRegexDependency(
+    digestManager,
+    digestFixture,
+    0,
+    '5.2.12',
+    'sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210'
+  );
+  const digestOnlyDependencies = extract(digestManager, digestOnlyFixture);
+  assert.equal(digestOnlyDependencies.length, 1);
+  assert.equal(digestOnlyDependencies[0].currentValue, '5.2.12');
+  assert.equal(
+    digestOnlyDependencies[0].currentDigest,
+    'sha256:fedcba9876543210fedcba9876543210fedcba9876543210fedcba9876543210'
+  );
+
+  for (const currentValue of ['3.24', '1', 'jammy', 'latest']) {
+    const content =
+      '{{- /* # renovate: datasource=docker depName=alpine */ -}}\n' +
+      `{{- print "docker.io/alpine:${currentValue}@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" -}}\n`;
+    const dependencies = extract(digestManager, content);
+    assert.equal(dependencies.length, 1, `Docker tag ${currentValue} must be extracted`);
+    assert.equal(dependencies[0].currentValue, currentValue);
+  }
 }
 
 function assertAlpineRepologySync(config) {

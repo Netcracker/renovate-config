@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": ["Update explicitly annotated version values in supported text files"],
+  "description": ["Update explicitly annotated dependency values in supported text files"],
   "customManagers": [
     {
       "description": "Update annotated Docker ARG version values.",
@@ -43,6 +43,15 @@
         "\\{\\{-?[\\t ]*/\\*[\\t ]+#?[\\t ]*renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[\\t ]*\\*/[\\t ]*-?\\}\\}[^\\S\\r\\n]*\\r?\\n[\\t ]*\\{\\{-?[\\t ]*print[\\t ]+\\\"[^\\\"\\r\\n]+:(?<currentValue>v?\\d+\\.\\d+\\.\\d+(?:[-+][A-Za-z0-9._-]+)?)\\\"[\\t ]*-?\\}\\}"
       ],
       "depTypeTemplate": "annotated-version"
+    },
+    {
+      "description": "Update digest-pinned images in Helm print templates.",
+      "customType": "regex",
+      "managerFilePatterns": ["/(^|/).+\\.tpl$/"],
+      "matchStrings": [
+        "\\{\\{-?[\\t ]*/\\*[\\t ]+#?[\\t ]*renovate: datasource=(?<datasource>docker) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[\\t ]*\\*/[\\t ]*-?\\}\\}[^\\S\\r\\n]*\\r?\\n[\\t ]*\\{\\{-?[\\t ]*print[\\t ]+\\\"[^\\\"\\r\\n]+:(?<currentValue>[A-Za-z0-9_][A-Za-z0-9_.-]{0,127})@(?<currentDigest>sha256:[a-f0-9]{64})\\\"[\\t ]*-?\\}\\}"
+      ],
+      "depTypeTemplate": "annotated-docker-image"
     },
     {
       "description": "Update annotated commented image versions in YAML files.",

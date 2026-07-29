@@ -58,7 +58,7 @@ a team-specific preset:
   group unrelated dependencies or the `actions/setup-go` action version.
 - `go-tidy` runs `go mod tidy` after Go module updates.
 - `netcracker-dependencies` groups internal dependencies by ecosystem and removes their release-age delay.
-- `annotated-versions` updates annotated Docker, YAML, template, Makefile, and environment values and `go install` commands. Version-only Docker annotations use tags without adding digests.
+- `annotated-versions` updates annotated Docker, YAML, template, Makefile, and environment values and `go install` commands. Version-only Docker annotations use tags without adding digests. Digest-pinned images in Helm print templates keep their tags and digests aligned.
 - `test-pipelines` keeps reusable test pipeline workflow references and `pipeline_branch` inputs aligned.
 - `grafana-plugins` updates Grafana plugin ID and version pairs in `plugins.list`, including plugins whose Grafana API response contains only one release.
 - `graylog-plugins` updates GitHub release URLs for Graylog plugin JARs in `plugins.list`.
@@ -86,6 +86,19 @@ Add `"github>Netcracker/renovate-config:go-tidy"` only as an explicit repository
 Keep `annotated-versions` after `base` in the `extends` list. The `base` preset enables digest pinning for Docker dependencies. The `annotated-versions` preset disables it only for version-only Docker annotations because those fields have nowhere to store a digest.
 
 Dependencies extracted by Renovate's native `dockerfile` and `helm-values` managers, along with custom managers that extract a digest, retain the inherited digest policy.
+
+### Pin annotated Helm image defaults by digest
+
+Add a digest to a full image reference in a Helm print template to opt in to digest updates:
+
+```gotemplate
+{{- /* # renovate: datasource=docker depName=graylog/graylog */ -}}
+{{- print "docker.io/graylog/graylog:5.2.12@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" -}}
+```
+
+Renovate extracts both the tag and digest and updates them together. A template that contains only a tag continues to receive tag-only updates.
+
+Seed the first valid digest manually. The preset requires an existing `@sha256:...` value instead of relying on initial digest insertion by a regex manager, which remains tracked in [renovatebot/renovate#10993](https://github.com/renovatebot/renovate/issues/10993).
 
 ## Update Alpine package annotations with the base image
 
