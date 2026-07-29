@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": ["Group related Go dependency families without modifying unrelated modules"],
+  "description": ["Group related Go dependency families and toolchain versions without modifying unrelated dependencies"],
   "packageRules": [
     {
       "description": ["Group Kubernetes Go modules"],
@@ -21,9 +21,14 @@
       "groupName": "Prometheus Go modules"
     },
     {
-      "description": ["Group Go toolchain updates"],
-      "matchManagers": ["gomod"],
+      "description": ["Group Go toolchain versions"],
       "matchDatasources": ["golang-version"],
+      "groupName": "Go toolchain"
+    },
+    {
+      "description": ["Group official Go builder images with Go toolchain updates"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["golang"],
       "groupName": "Go toolchain"
     }
   ]

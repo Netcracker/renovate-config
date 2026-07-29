@@ -53,7 +53,9 @@ a team-specific preset:
 
 - `base` applies an explicit best-practices baseline, weekly schedule, dependency label, and semantic commit settings.
 - `github-actions` groups third-party and Netcracker actions separately, with major updates in separate groups.
-- `go` groups Kubernetes and OpenShift, OpenTelemetry, Prometheus, and Go toolchain updates. It does not group unrelated modules.
+- `go` groups Kubernetes and OpenShift, OpenTelemetry, Prometheus, and Go toolchain updates. Toolchain updates include
+  `go.mod` directives, explicit GitHub Actions Go versions, and official `golang` builder images. The preset does not
+  group unrelated dependencies or the `actions/setup-go` action version.
 - `go-tidy` runs `go mod tidy` after Go module updates.
 - `netcracker-dependencies` groups internal dependencies by ecosystem and removes their release-age delay.
 - `annotated-versions` updates explicitly annotated Docker, YAML, template, and Makefile values.

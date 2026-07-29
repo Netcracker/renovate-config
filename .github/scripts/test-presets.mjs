@@ -30,6 +30,14 @@ function findRule(config, description) {
   return rule;
 }
 
+function ruleMatchesDependency(rule, dependency) {
+  return [
+    ['matchManagers', dependency.manager],
+    ['matchDatasources', dependency.datasource],
+    ['matchPackageNames', dependency.depName],
+  ].every(([matcher, value]) => !rule[matcher] || rule[matcher].includes(value));
+}
+
 function compileManager(manager) {
   return manager.matchStrings.map((matchString) => new RegExp(matchString, 'g'));
 }
@@ -94,11 +102,12 @@ function assertGoPolicy(config) {
     'Group Kubernetes Go modules',
     'Group OpenTelemetry Go modules',
     'Group Prometheus Go modules',
-    'Group Go toolchain updates',
+    'Group Go toolchain versions',
+    'Group official Go builder images with Go toolchain updates',
   ]) {
     findRule(config, description);
   }
-  assert.equal(config.packageRules.length, 4, 'go.json must not group unrelated Go dependencies');
+  assert.equal(config.packageRules.length, 5, 'go.json must not group unrelated Go dependencies');
   const kubernetes = findRule(config, 'Group Kubernetes Go modules');
   assert.deepEqual(kubernetes.matchPackageNames, [
     'k8s.io/**',
@@ -110,6 +119,46 @@ function assertGoPolicy(config) {
     'go.opentelemetry.io/**',
     'github.com/open-telemetry/**',
   ]);
+
+  const toolchain = findRule(config, 'Group Go toolchain versions');
+  assert.equal(
+    ruleMatchesDependency(toolchain, {
+      manager: 'github-actions',
+      datasource: 'golang-version',
+      depName: 'go',
+    }),
+    true,
+    'Explicit GitHub Actions Go versions must join the Go toolchain group'
+  );
+  assert.equal(
+    ruleMatchesDependency(toolchain, {
+      manager: 'github-actions',
+      datasource: 'github-tags',
+      depName: 'actions/setup-go',
+    }),
+    false,
+    'The setup-go action version must stay in the GitHub Actions group'
+  );
+
+  const builderImage = findRule(config, 'Group official Go builder images with Go toolchain updates');
+  assert.equal(
+    ruleMatchesDependency(builderImage, {
+      manager: 'dockerfile',
+      datasource: 'docker',
+      depName: 'golang',
+    }),
+    true,
+    'The official golang image must join the Go toolchain group'
+  );
+  assert.equal(
+    ruleMatchesDependency(builderImage, {
+      manager: 'dockerfile',
+      datasource: 'docker',
+      depName: 'alpine',
+    }),
+    false,
+    'Unrelated Docker images must stay outside the Go toolchain group'
+  );
 }
 
 function assertGoTidyPolicy(config) {
