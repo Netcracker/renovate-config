@@ -22,6 +22,7 @@
       "depNameTemplate": "alpine",
       "packageNameTemplate": "alpine",
       "versioningTemplate": "docker",
+      "depTypeTemplate": "alpine-release-sync",
       "autoReplaceStringTemplate": "# renovate: datasource=repology depName=alpine_{{{newMajor}}}_{{{newMinor}}}/{{{alpinePackage}}} versioning={{{packageVersioning}}} syncWith=alpine"
     },
     {
@@ -71,6 +72,17 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": ["alpine"],
       "groupName": "alpine-release"
+    },
+    {
+      "description": ["Disable digest pinning for Alpine repository synchronization"],
+      "matchDepTypes": ["alpine-release-sync"],
+      "pinDigests": false
+    },
+    {
+      "description": ["Bypass release age for Alpine Repology packages"],
+      "matchDatasources": ["repology"],
+      "matchPackageNames": ["/^alpine_\\d+_\\d+\\/.+$/"],
+      "minimumReleaseAge": "0 days"
     }
   ]
 }

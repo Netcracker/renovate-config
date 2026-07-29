@@ -99,6 +99,12 @@ function assertGoPolicy(config) {
     findRule(config, description);
   }
   assert.equal(config.packageRules.length, 4, 'go.json must not group unrelated Go dependencies');
+  const kubernetes = findRule(config, 'Group Kubernetes Go modules');
+  assert.deepEqual(kubernetes.matchPackageNames, [
+    'k8s.io/**',
+    'sigs.k8s.io/**',
+    'github.com/openshift/**',
+  ]);
   const openTelemetry = findRule(config, 'Group OpenTelemetry Go modules');
   assert.deepEqual(openTelemetry.matchPackageNames, [
     'go.opentelemetry.io/**',
@@ -261,6 +267,7 @@ function assertAlpineRepologySync(config) {
   assert.equal(manager.depNameTemplate, 'alpine');
   assert.equal(manager.packageNameTemplate, 'alpine');
   assert.equal(manager.versioningTemplate, 'docker');
+  assert.equal(manager.depTypeTemplate, 'alpine-release-sync');
   assert.equal(manager.currentValueTemplate, "{{{ replace '_' '.' currentValue }}}");
   assert.equal(dependencies.length, 1, 'Only annotations marked with syncWith=alpine must be synchronized');
   assert.deepEqual(
@@ -298,6 +305,15 @@ function assertAlpineRepologySync(config) {
   assert.deepEqual(rule.matchDatasources, ['docker']);
   assert.deepEqual(rule.matchPackageNames, ['alpine']);
   assert.equal(rule.groupName, 'alpine-release');
+
+  const digestPinning = findRule(config, 'Disable digest pinning for Alpine repository synchronization');
+  assert.deepEqual(digestPinning.matchDepTypes, ['alpine-release-sync']);
+  assert.equal(digestPinning.pinDigests, false);
+
+  const repologyReleaseAge = findRule(config, 'Bypass release age for Alpine Repology packages');
+  assert.deepEqual(repologyReleaseAge.matchDatasources, ['repology']);
+  assert.deepEqual(repologyReleaseAge.matchPackageNames, ['/^alpine_\\d+_\\d+\\/.+$/']);
+  assert.equal(repologyReleaseAge.minimumReleaseAge, '0 days');
 }
 
 function assertTestPipelines(config) {
@@ -357,6 +373,9 @@ function assertGrafanaPlugins(config) {
   );
   assert.ok(config.customDatasources?.['grafana-plugins']);
   assert.equal(manager.datasourceTemplate, 'custom.grafana-plugins');
+  assert.deepEqual(config.customDatasources['grafana-plugins'].transformTemplates, [
+    '{"releases": [items.{"version": version, "releaseTimestamp": createdAt}]}',
+  ]);
 }
 
 function assertGraylogPlugins(config) {
