@@ -58,7 +58,7 @@ a team-specific preset:
   group unrelated dependencies or the `actions/setup-go` action version.
 - `go-tidy` runs `go mod tidy` after Go module updates.
 - `netcracker-dependencies` groups internal dependencies by ecosystem and removes their release-age delay.
-- `annotated-versions` updates explicitly annotated Docker, YAML, template, and Makefile values.
+- `annotated-versions` updates annotated Docker, YAML, and template values, Makefile variables, and `go install` commands.
 - `test-pipelines` keeps reusable test pipeline workflow references and `pipeline_branch` inputs aligned.
 - `grafana-plugins` updates Grafana plugin ID and version pairs in `plugins.list`, including plugins whose Grafana API response contains only one release.
 - `graylog-plugins` updates GitHub release URLs for Graylog plugin JARs in `plugins.list`.

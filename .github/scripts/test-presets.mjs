@@ -243,6 +243,14 @@ function assertAnnotatedVersions(config) {
       'semver',
     ],
     [
+      'annotated-versions/variables.mk',
+      'Update annotated version variables in Makefiles.',
+      'sigs.k8s.io/controller-tools',
+      'v0.20.0',
+      undefined,
+      'semver',
+    ],
+    [
       'annotated-versions/monitoring/templates/grafana-image.tpl',
       'Update annotated image versions in Helm print templates.',
       'quay.io/grafana-operator/grafana-operator',
