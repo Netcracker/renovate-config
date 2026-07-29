@@ -26,9 +26,22 @@
       "groupName": "Go toolchain"
     },
     {
+      "description": ["Group explicit GitHub Actions Go versions with Go toolchain updates"],
+      "matchManagers": ["github-actions"],
+      "matchDatasources": ["github-releases"],
+      "matchDepNames": ["go"],
+      "matchPackageNames": ["actions/go-versions"],
+      "groupName": "Go toolchain"
+    },
+    {
       "description": ["Group official Go builder images with Go toolchain updates"],
       "matchDatasources": ["docker"],
-      "matchPackageNames": ["golang"],
+      "matchPackageNames": [
+        "golang",
+        "docker.io/library/golang",
+        "index.docker.io/library/golang",
+        "registry-1.docker.io/library/golang"
+      ],
       "groupName": "Go toolchain"
     }
   ]

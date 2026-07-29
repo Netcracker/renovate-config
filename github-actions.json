@@ -6,6 +6,13 @@
       "description": ["Group third-party GitHub Actions non-major updates"],
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["!Netcracker/**", "!netcracker/**"],
+      "matchDepNames": [
+        "!go",
+        "!golang",
+        "!docker.io/library/golang",
+        "!index.docker.io/library/golang",
+        "!registry-1.docker.io/library/golang"
+      ],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest", "pinDigest"],
       "groupName": "third-party GitHub Actions"
     },
@@ -13,6 +20,13 @@
       "description": ["Group third-party GitHub Actions major updates separately"],
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["!Netcracker/**", "!netcracker/**"],
+      "matchDepNames": [
+        "!go",
+        "!golang",
+        "!docker.io/library/golang",
+        "!index.docker.io/library/golang",
+        "!registry-1.docker.io/library/golang"
+      ],
       "matchUpdateTypes": ["major"],
       "groupName": "major third-party GitHub Actions"
     },

@@ -34,7 +34,8 @@ function ruleMatchesDependency(rule, dependency) {
   return [
     ['matchManagers', dependency.manager],
     ['matchDatasources', dependency.datasource],
-    ['matchPackageNames', dependency.depName],
+    ['matchPackageNames', dependency.packageName ?? dependency.depName],
+    ['matchDepNames', dependency.depName],
   ].every(([matcher, value]) => !rule[matcher] || rule[matcher].includes(value));
 }
 
@@ -86,7 +87,17 @@ function assertGitHubActionsPolicy(config) {
   const majorNetcracker = findRule(config, 'Group Netcracker GitHub Actions major updates separately');
   const nonMajorUpdateTypes = ['minor', 'patch', 'pin', 'digest', 'pinDigest'];
   assert.deepEqual(thirdParty.matchManagers, ['github-actions']);
+  const thirdPartyDepNames = [
+    '!go',
+    '!golang',
+    '!docker.io/library/golang',
+    '!index.docker.io/library/golang',
+    '!registry-1.docker.io/library/golang',
+  ];
   assert.deepEqual(thirdParty.matchPackageNames, ['!Netcracker/**', '!netcracker/**']);
+  assert.deepEqual(majorThirdParty.matchPackageNames, ['!Netcracker/**', '!netcracker/**']);
+  assert.deepEqual(thirdParty.matchDepNames, thirdPartyDepNames);
+  assert.deepEqual(majorThirdParty.matchDepNames, thirdPartyDepNames);
   assert.deepEqual(netcracker.matchPackageNames, ['Netcracker/**', 'netcracker/**']);
   for (const rule of [thirdParty, netcracker]) {
     assert.deepEqual(rule.matchUpdateTypes, nonMajorUpdateTypes);
@@ -103,11 +114,12 @@ function assertGoPolicy(config) {
     'Group OpenTelemetry Go modules',
     'Group Prometheus Go modules',
     'Group Go toolchain versions',
+    'Group explicit GitHub Actions Go versions with Go toolchain updates',
     'Group official Go builder images with Go toolchain updates',
   ]) {
     findRule(config, description);
   }
-  assert.equal(config.packageRules.length, 5, 'go.json must not group unrelated Go dependencies');
+  assert.equal(config.packageRules.length, 6, 'go.json must not group unrelated Go dependencies');
   const kubernetes = findRule(config, 'Group Kubernetes Go modules');
   assert.deepEqual(kubernetes.matchPackageNames, [
     'k8s.io/**',
@@ -123,33 +135,44 @@ function assertGoPolicy(config) {
   const toolchain = findRule(config, 'Group Go toolchain versions');
   assert.equal(
     ruleMatchesDependency(toolchain, {
-      manager: 'github-actions',
+      manager: 'gomod',
       datasource: 'golang-version',
       depName: 'go',
     }),
     true,
-    'Explicit GitHub Actions Go versions must join the Go toolchain group'
+    'go.mod Go versions must join the Go toolchain group'
   );
+
+  const setupGoVersion = findRule(config, 'Group explicit GitHub Actions Go versions with Go toolchain updates');
   assert.equal(
-    ruleMatchesDependency(toolchain, {
+    ruleMatchesDependency(setupGoVersion, {
       manager: 'github-actions',
-      datasource: 'github-tags',
-      depName: 'actions/setup-go',
+      datasource: 'github-releases',
+      depName: 'go',
+      packageName: 'actions/go-versions',
     }),
-    false,
-    'The setup-go action version must stay in the GitHub Actions group'
+    true,
+    'Explicit actions/setup-go Go versions must join the Go toolchain group'
   );
 
   const builderImage = findRule(config, 'Group official Go builder images with Go toolchain updates');
-  assert.equal(
-    ruleMatchesDependency(builderImage, {
-      manager: 'dockerfile',
-      datasource: 'docker',
-      depName: 'golang',
-    }),
-    true,
-    'The official golang image must join the Go toolchain group'
-  );
+  for (const depName of [
+    'golang',
+    'docker.io/library/golang',
+    'index.docker.io/library/golang',
+    'registry-1.docker.io/library/golang',
+  ]) {
+    assert.equal(
+      ruleMatchesDependency(builderImage, {
+        manager: 'dockerfile',
+        datasource: 'docker',
+        depName,
+        packageName: depName,
+      }),
+      true,
+      `The official ${depName} image must join the Go toolchain group`
+    );
+  }
   assert.equal(
     ruleMatchesDependency(builderImage, {
       manager: 'dockerfile',
