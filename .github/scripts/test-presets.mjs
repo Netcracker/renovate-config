@@ -44,10 +44,14 @@ function compileManager(manager) {
 }
 
 function managerMatchesPath(manager, path) {
-  return manager.managerFilePatterns.some((pattern) => {
-    assert.match(pattern, /^\/.+\/$/, `Test runner does not support non-regex file pattern: ${pattern}`);
-    return new RegExp(pattern.slice(1, -1)).test(path);
-  });
+  const matches = (pattern) => {
+    const regexPattern = pattern.startsWith('!') ? pattern.slice(1) : pattern;
+    assert.match(regexPattern, /^\/.+\/$/, `Test runner does not support non-regex file pattern: ${pattern}`);
+    return new RegExp(regexPattern.slice(1, -1)).test(path);
+  };
+  const positivePatterns = manager.managerFilePatterns.filter((pattern) => !pattern.startsWith('!'));
+  const negativePatterns = manager.managerFilePatterns.filter((pattern) => pattern.startsWith('!'));
+  return positivePatterns.some(matches) && !negativePatterns.some(matches);
 }
 
 function extract(manager, content) {
@@ -342,6 +346,15 @@ function assertAnnotatedVersions(config) {
     .filter((manager) => managerMatchesPath(manager, overlappingPath))
     .flatMap((manager) => extract(manager, overlappingContent));
   assert.equal(overlappingMatches.length, 1, `${overlappingPath} must be handled by only one custom manager`);
+
+  const hiddenMakePath = 'annotated-versions/.tools.mk';
+  const hiddenMakeContent =
+    '# renovate: datasource=go depName=sigs.k8s.io/controller-tools versioning=semver\n' +
+    'go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.19.1\n';
+  const hiddenMakeMatches = config.customManagers
+    .filter((manager) => managerMatchesPath(manager, hiddenMakePath))
+    .flatMap((manager) => extract(manager, hiddenMakeContent));
+  assert.equal(hiddenMakeMatches.length, 1, `${hiddenMakePath} must preserve hidden Makefile support`);
 }
 
 function assertAlpineRepologySync(config) {

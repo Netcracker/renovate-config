@@ -60,7 +60,10 @@
     {
       "description": "Update annotated go install versions in Makefiles.",
       "customType": "regex",
-      "managerFilePatterns": ["/(^|/)(?:Makefile|GNUMakefile|[^/.][^/]*\\.mk)$/"],
+      "managerFilePatterns": [
+        "/(^|/)(?:Makefile|GNUMakefile|[^/]+\\.mk)$/",
+        "!/(^|/)\\.env(?:\\.[^/]+)?$/"
+      ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*go install [^\\s@]+@(?<currentValue>v?\\d+\\.\\d+\\.\\d+(?:[-+][A-Za-z0-9._-]+)?)[^\\S\\r\\n]*"
       ]
@@ -68,7 +71,10 @@
     {
       "description": "Update annotated version variables in Makefiles.",
       "customType": "regex",
-      "managerFilePatterns": ["/(^|/)(?:Makefile|GNUMakefile|[^/.][^/]*\\.mk)$/"],
+      "managerFilePatterns": [
+        "/(^|/)(?:Makefile|GNUMakefile|[^/]+\\.mk)$/",
+        "!/(^|/)\\.env(?:\\.[^/]+)?$/"
+      ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*(?:export[\\t ]+)?[A-Za-z_][A-Za-z0-9_]*[\\t ]*(?::=|\\?=|=)[\\t ]*[\\\"']?(?<currentValue>v?\\d+[A-Za-z0-9._+-]*)[\\\"']?[^\\S\\r\\n]*"
       ]
