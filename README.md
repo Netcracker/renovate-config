@@ -58,7 +58,7 @@ a team-specific preset:
   group unrelated dependencies or the `actions/setup-go` action version.
 - `go-tidy` runs `go mod tidy` after Go module updates.
 - `netcracker-dependencies` groups internal dependencies by ecosystem and removes their release-age delay.
-- `annotated-versions` updates annotated Docker, YAML, template, Makefile, and environment values and `go install` commands.
+- `annotated-versions` updates annotated Docker, YAML, template, Makefile, and environment values and `go install` commands. Version-only Docker annotations use tags without adding digests.
 - `test-pipelines` keeps reusable test pipeline workflow references and `pipeline_branch` inputs aligned.
 - `grafana-plugins` updates Grafana plugin ID and version pairs in `plugins.list`, including plugins whose Grafana API response contains only one release.
 - `graylog-plugins` updates GitHub release URLs for Graylog plugin JARs in `plugins.list`.
@@ -82,6 +82,10 @@ For example, a Go repository that uses annotated tool versions can compose these
 ```
 
 Add `"github>Netcracker/renovate-config:go-tidy"` only as an explicit repository decision.
+
+Keep `annotated-versions` after `base` in the `extends` list. The `base` preset enables digest pinning for Docker dependencies. The `annotated-versions` preset disables it only for version-only Docker annotations because those fields have nowhere to store a digest.
+
+Dependencies extracted by Renovate's native `dockerfile` and `helm-values` managers, along with custom managers that extract a digest, retain the inherited digest policy.
 
 ## Update Alpine package annotations with the base image
 

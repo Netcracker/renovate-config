@@ -36,7 +36,15 @@ function ruleMatchesDependency(rule, dependency) {
     ['matchDatasources', dependency.datasource],
     ['matchPackageNames', dependency.packageName ?? dependency.depName],
     ['matchDepNames', dependency.depName],
+    ['matchDepTypes', dependency.depType],
   ].every(([matcher, value]) => !rule[matcher] || rule[matcher].includes(value));
+}
+
+function applyPackageRules(dependency, rules) {
+  return rules.reduce(
+    (result, rule) => (ruleMatchesDependency(rule, dependency) ? { ...result, ...rule } : result),
+    dependency
+  );
 }
 
 function compileManager(manager) {
@@ -235,6 +243,102 @@ function assertRepositoryPolicy(config) {
 }
 
 function assertAnnotatedVersions(config) {
+  const alpineSyncManagerDescription = 'Keep Alpine Repology repositories in sync with the Alpine image.';
+  const annotatedManagers = config.customManagers.filter(
+    (manager) => manager.description !== alpineSyncManagerDescription
+  );
+  assert.equal(annotatedManagers.length, 7, 'All version-only annotation managers must be covered');
+  for (const manager of annotatedManagers) {
+    assert.equal(
+      manager.depTypeTemplate,
+      'annotated-version',
+      `${manager.description} must identify version-only dependencies`
+    );
+  }
+
+  const digestPinning = findRule(config, 'Disable digest pinning for version-only Docker annotations');
+  assert.deepEqual(digestPinning.matchManagers, ['custom.regex']);
+  assert.deepEqual(digestPinning.matchDatasources, ['docker']);
+  assert.deepEqual(digestPinning.matchDepTypes, ['annotated-version']);
+  assert.equal(digestPinning.pinDigests, false);
+
+  const versionOnlyDockerAnnotation = {
+    manager: 'custom.regex',
+    datasource: 'docker',
+    depName: 'graylog/graylog',
+    depType: 'annotated-version',
+  };
+  assert.equal(
+    ruleMatchesDependency(digestPinning, versionOnlyDockerAnnotation),
+    true,
+    'Version-only Docker annotations must match the digest override'
+  );
+
+  const inheritedDigestPinning = {
+    matchDatasources: ['docker'],
+    pinDigests: true,
+  };
+  assert.equal(
+    applyPackageRules(versionOnlyDockerAnnotation, [inheritedDigestPinning, ...config.packageRules]).pinDigests,
+    false,
+    'annotated-versions must override the base Docker digest policy when it is extended after base'
+  );
+  assert.equal(
+    applyPackageRules(versionOnlyDockerAnnotation, [...config.packageRules, inheritedDigestPinning]).pinDigests,
+    true,
+    'A later base Docker digest policy must override annotated-versions'
+  );
+
+  for (const testCase of [
+    {
+      manager: 'custom.regex',
+      datasource: 'docker',
+      depName: 'alpine',
+      depType: 'alpine-release-sync',
+      expectedPinDigests: false,
+    },
+    {
+      manager: 'dockerfile',
+      datasource: 'docker',
+      depName: 'alpine',
+      depType: 'final',
+      expectedPinDigests: true,
+    },
+    {
+      manager: 'helm-values',
+      datasource: 'docker',
+      depName: 'graylog/graylog',
+      depType: 'docker',
+      expectedPinDigests: true,
+    },
+    {
+      manager: 'custom.regex',
+      datasource: 'docker',
+      depName: 'Netcracker/example',
+      depType: 'docker-image-with-digest',
+      expectedPinDigests: true,
+    },
+    {
+      manager: 'custom.regex',
+      datasource: 'github-releases',
+      depName: 'Netcracker/example',
+      depType: 'annotated-version',
+      expectedPinDigests: undefined,
+    },
+  ]) {
+    const { expectedPinDigests, ...dependency } = testCase;
+    assert.equal(
+      ruleMatchesDependency(digestPinning, dependency),
+      false,
+      `${dependency.manager}/${dependency.datasource}/${dependency.depType} must retain the inherited digest policy`
+    );
+    assert.equal(
+      applyPackageRules(dependency, [inheritedDigestPinning, ...config.packageRules]).pinDigests,
+      expectedPinDigests,
+      `${dependency.manager}/${dependency.datasource}/${dependency.depType} must keep its inherited policy value`
+    );
+  }
+
   const fixtures = [
     [
       'annotated-versions/Dockerfile',

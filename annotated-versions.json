@@ -8,7 +8,8 @@
       "managerFilePatterns": ["/(^|/)(?:Dockerfile|Containerfile)(?:\\.[^/]+)?$/"],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?(?: syncWith=alpine)?[^\\S\\r\\n]*\\r?\\n[\\t ]*ARG [A-Za-z_][A-Za-z0-9_]*[ =][\\\"']?(?<currentValue>[A-Za-z0-9][A-Za-z0-9._+-]*)[\\\"']?[^\\S\\r\\n]*"
-      ]
+      ],
+      "depTypeTemplate": "annotated-version"
     },
     {
       "description": "Keep Alpine Repology repositories in sync with the Alpine image.",
@@ -31,7 +32,8 @@
       "managerFilePatterns": ["/(^|/).+\\.(?:ya?ml|ya?ml\\.tmpl|tmpl)$/"],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*[A-Za-z_][A-Za-z0-9_.-]*:[\\t ]*[\\\"']?(?<currentValue>[A-Za-z0-9][A-Za-z0-9._+-]*)[\\\"']?[^\\S\\r\\n]*"
-      ]
+      ],
+      "depTypeTemplate": "annotated-version"
     },
     {
       "description": "Update annotated image versions in Helm print templates.",
@@ -39,7 +41,8 @@
       "managerFilePatterns": ["/(^|/).+\\.tpl$/"],
       "matchStrings": [
         "\\{\\{-?[\\t ]*/\\*[\\t ]+#?[\\t ]*renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[\\t ]*\\*/[\\t ]*-?\\}\\}[^\\S\\r\\n]*\\r?\\n[\\t ]*\\{\\{-?[\\t ]*print[\\t ]+\\\"[^\\\"\\r\\n]+:(?<currentValue>v?\\d+\\.\\d+\\.\\d+(?:[-+][A-Za-z0-9._-]+)?)\\\"[\\t ]*-?\\}\\}"
-      ]
+      ],
+      "depTypeTemplate": "annotated-version"
     },
     {
       "description": "Update annotated commented image versions in YAML files.",
@@ -47,7 +50,8 @@
       "managerFilePatterns": ["/(^|/).+\\.ya?ml$/"],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*#[\\t ]*dockerImage:[\\t ]+[^\\s:]+(?:/[^\\s:]+)*:(?<currentValue>v?\\d+[A-Za-z0-9._+-]*)[^\\S\\r\\n]*"
-      ]
+      ],
+      "depTypeTemplate": "annotated-version"
     },
     {
       "description": "Update annotated version directives in configuration files.",
@@ -55,7 +59,8 @@
       "managerFilePatterns": ["/(^|/).+\\.conf$/"],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*version[\\t ]+(?<currentValue>v?\\d+[A-Za-z0-9._+-]*)[^\\S\\r\\n]*"
-      ]
+      ],
+      "depTypeTemplate": "annotated-version"
     },
     {
       "description": "Update annotated go install versions in Makefiles.",
@@ -63,7 +68,8 @@
       "managerFilePatterns": ["/(^|/)(?:Makefile|GNUMakefile|[^/]+\\.mk)$/"],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*go install [^\\s@]+@(?<currentValue>v?\\d+\\.\\d+\\.\\d+(?:[-+][A-Za-z0-9._-]+)?)[^\\S\\r\\n]*"
-      ]
+      ],
+      "depTypeTemplate": "annotated-version"
     },
     {
       "description": "Update annotated version variables in Makefiles and environment files.",
@@ -74,7 +80,8 @@
       ],
       "matchStrings": [
         "# renovate: datasource=(?<datasource>[a-zA-Z0-9._-]+) depName=(?<depName>[^\\s]+)(?: packageName=(?<packageName>[^\\s]+))?(?: versioning=(?<versioning>[^\\s]+))?[^\\S\\r\\n]*\\r?\\n[\\t ]*(?:export[\\t ]+)?[A-Za-z_][A-Za-z0-9_]*[\\t ]*(?::=|\\?=|=)[\\t ]*[\\\"']?(?<currentValue>v?\\d+[A-Za-z0-9._+-]*)[\\\"']?[^\\S\\r\\n]*"
-      ]
+      ],
+      "depTypeTemplate": "annotated-version"
     }
   ],
   "packageRules": [
@@ -87,6 +94,13 @@
     {
       "description": ["Disable digest pinning for Alpine repository synchronization"],
       "matchDepTypes": ["alpine-release-sync"],
+      "pinDigests": false
+    },
+    {
+      "description": ["Disable digest pinning for version-only Docker annotations"],
+      "matchManagers": ["custom.regex"],
+      "matchDatasources": ["docker"],
+      "matchDepTypes": ["annotated-version"],
       "pinDigests": false
     },
     {
