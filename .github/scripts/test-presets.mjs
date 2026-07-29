@@ -274,6 +274,14 @@ function assertAnnotatedVersions(config) {
       'semver',
     ],
     [
+      'annotated-versions/kind.env',
+      'Update annotated version variables in environment files.',
+      'Netcracker/qubership-opensearch',
+      '2.3.0',
+      undefined,
+      'semver',
+    ],
+    [
       'annotated-versions/monitoring/templates/grafana-image.tpl',
       'Update annotated image versions in Helm print templates.',
       'quay.io/grafana-operator/grafana-operator',
