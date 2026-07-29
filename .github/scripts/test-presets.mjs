@@ -334,6 +334,14 @@ function assertAnnotatedVersions(config) {
     assert.equal(matches[0].dependency.packageName, packageName);
     assert.equal(matches[0].dependency.versioning, versioning);
   }
+
+  const overlappingPath = 'annotated-versions/.env.mk';
+  const overlappingContent =
+    '# renovate: datasource=github-releases depName=Netcracker/example versioning=semver\nVERSION=1.2.3\n';
+  const overlappingMatches = config.customManagers
+    .filter((manager) => managerMatchesPath(manager, overlappingPath))
+    .flatMap((manager) => extract(manager, overlappingContent));
+  assert.equal(overlappingMatches.length, 1, `${overlappingPath} must be handled by only one custom manager`);
 }
 
 function assertAlpineRepologySync(config) {
