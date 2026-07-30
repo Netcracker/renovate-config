@@ -57,6 +57,8 @@ a team-specific preset:
   `go.mod` directives, explicit GitHub Actions Go versions, and official `golang` builder images. The preset does not
   group unrelated dependencies or the `actions/setup-go` action version.
 - `go-tidy` runs `go mod tidy` after Go module updates.
+- `maven-groupid` groups Maven updates by `groupId`. Maven vulnerability updates use the same grouping, while
+  vulnerability updates from other ecosystems remain separate by datasource and dependency.
 - `netcracker-dependencies` groups internal dependencies by ecosystem and removes their release-age delay.
 - `annotated-versions` updates annotated Docker, YAML, template, Makefile, and environment values and `go install` commands. Version-only Docker annotations use tags without adding digests. Digest-pinned images in Helm print templates keep their tags and digests aligned.
 - `test-pipelines` keeps reusable test pipeline workflow references and `pipeline_branch` inputs aligned.
@@ -66,6 +68,38 @@ a team-specific preset:
 
 The `go-tidy` preset is separate because `gomodTidy` can make changes to `go.mod` and `go.sum` that are unrelated to
 the dependency Renovate is updating. Enable it only when those broader module-file changes are acceptable.
+
+## Group Maven updates by groupId
+
+Enable the `maven-groupid` preset to group Maven artifacts that share a `groupId`:
+
+```json
+{
+  "extends": ["github>Netcracker/renovate-config:maven-groupid"]
+}
+```
+
+For example, updates for `org.apache.logging.log4j:log4j-api` and
+`org.apache.logging.log4j:log4j-core` use one `org.apache.logging.log4j` group. The preset applies the same grouping to
+Maven vulnerability updates.
+
+Repository package rules can override the default group. Keep local rules that combine multiple groupIds, constrain
+versions, or apply only to specific files.
+
+For ordinary updates, place `netcracker-dependencies` after `maven-groupid` so internal Maven artifacts retain the
+shared `Netcracker Maven artifacts` group:
+
+```json
+{
+  "extends": [
+    "github>Netcracker/renovate-config:maven-groupid",
+    "github>Netcracker/renovate-config:netcracker-dependencies"
+  ]
+}
+```
+
+Vulnerability updates always use the `<groupId> security` group, including internal artifacts. Renovate applies
+`vulnerabilityAlerts` after ordinary package rules, so preset order does not change security grouping.
 
 For example, a Go repository that uses annotated tool versions can compose these presets:
 

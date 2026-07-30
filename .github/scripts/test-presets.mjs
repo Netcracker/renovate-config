@@ -6,6 +6,7 @@ const presetNames = [
   'github-actions',
   'go',
   'go-tidy',
+  'maven-groupid',
   'netcracker-dependencies',
   'test-pipelines',
   'annotated-versions',
@@ -30,6 +31,25 @@ function findRule(config, description) {
   return rule;
 }
 
+function matchesStringPattern(pattern, value) {
+  if (pattern.startsWith('/') && pattern.endsWith('/')) {
+    return new RegExp(pattern.slice(1, -1)).test(value);
+  }
+  if (pattern.endsWith('/**')) {
+    return value.startsWith(pattern.slice(0, -2));
+  }
+  return pattern === value;
+}
+
+function matchesStringPatterns(patterns, value) {
+  const negativePatterns = patterns.filter((pattern) => pattern.startsWith('!')).map((pattern) => pattern.slice(1));
+  if (negativePatterns.some((pattern) => matchesStringPattern(pattern, value))) {
+    return false;
+  }
+  const positivePatterns = patterns.filter((pattern) => !pattern.startsWith('!'));
+  return positivePatterns.length === 0 || positivePatterns.some((pattern) => matchesStringPattern(pattern, value));
+}
+
 function ruleMatchesDependency(rule, dependency) {
   return [
     ['matchManagers', dependency.manager],
@@ -37,7 +57,7 @@ function ruleMatchesDependency(rule, dependency) {
     ['matchPackageNames', dependency.packageName ?? dependency.depName],
     ['matchDepNames', dependency.depName],
     ['matchDepTypes', dependency.depType],
-  ].every(([matcher, value]) => !rule[matcher] || rule[matcher].includes(value));
+  ].every(([matcher, value]) => !rule[matcher] || matchesStringPatterns(rule[matcher], value));
 }
 
 function applyPackageRules(dependency, rules) {
@@ -78,7 +98,14 @@ function replaceRegexDependency(manager, content, dependencyIndex, newValue, new
 
 function render(template, values) {
   return template
-    .replaceAll(/\{\{\{replace '\^v' '' ([^}]+)}}}/g, (_, field) => (values[field] ?? '').replace(/^v/, ''))
+    .replaceAll(
+      /\{\{#if \(equals ([^ ]+) '([^']+)'\)\}\}([\s\S]*?)\{\{else\}\}([\s\S]*?)\{\{\/if\}\}/g,
+      (_, field, expected, ifTrue, ifFalse) => (values[field] === expected ? ifTrue : ifFalse)
+    )
+    .replaceAll(
+      /\{\{\{replace '([^']+)' '([^']*)' ([^}]+)}}}/g,
+      (_, pattern, replacement, field) => (values[field] ?? '').replace(new RegExp(pattern), replacement)
+    )
     .replaceAll(/\{\{\{([^}]+)}}}/g, (_, field) => values[field] ?? '');
 }
 
@@ -224,6 +251,66 @@ function assertNetcrackerPolicy(config) {
   const majorActions = findRule(config, 'Group major Netcracker GitHub Actions updates separately');
   assert.deepEqual(majorActions.matchUpdateTypes, ['major']);
   assert.equal(majorActions.minimumReleaseAge, '0 days');
+}
+
+function assertMavenGroupIdPolicy(config, netcrackerConfig) {
+  const defaultRule = findRule(config, 'Group Maven updates by groupId');
+  assert.deepEqual(defaultRule.matchDatasources, ['maven']);
+
+  const junitApi = render(defaultRule.groupName, {
+    datasource: 'maven',
+    depName: 'org.junit.jupiter:junit-jupiter-api',
+  });
+  const junitEngine = render(defaultRule.groupName, {
+    datasource: 'maven',
+    depName: 'org.junit.jupiter:junit-jupiter-engine',
+  });
+  assert.equal(junitApi, 'org.junit.jupiter');
+  assert.equal(junitEngine, junitApi, 'Maven artifacts with the same groupId must share a group');
+  assert.notEqual(
+    render(defaultRule.groupName, {
+      datasource: 'maven',
+      depName: 'org.junit.platform:junit-platform-launcher',
+    }),
+    junitApi,
+    'Different Maven groupIds must stay in separate groups'
+  );
+
+  const vulnerabilityGroup = config.vulnerabilityAlerts?.groupName;
+  assert.ok(vulnerabilityGroup, 'Maven vulnerability updates must define a group');
+  assert.equal(
+    render(vulnerabilityGroup, {
+      datasource: 'maven',
+      depName: 'org.apache.logging.log4j:log4j-core',
+    }),
+    'org.apache.logging.log4j security'
+  );
+  assert.notEqual(
+    render(vulnerabilityGroup, {
+      datasource: 'docker',
+      depName: 'ghcr.io/netcracker/example',
+    }),
+    render(vulnerabilityGroup, {
+      datasource: 'go',
+      depName: 'ghcr.io/netcracker/example',
+    }),
+    'Non-Maven vulnerability groups must remain distinct across datasources'
+  );
+
+  const internalDependency = {
+    manager: 'maven',
+    datasource: 'maven',
+    depName: 'org.qubership.profiler:agent',
+    packageName: 'org.qubership.profiler:agent',
+  };
+  const internalRule = findRule(netcrackerConfig, 'Group Netcracker Maven artifacts');
+  const result = applyPackageRules(internalDependency, [defaultRule, internalRule]);
+  assert.equal(result.groupName, 'Netcracker Maven artifacts');
+  assert.equal(
+    render(vulnerabilityGroup, internalDependency),
+    'org.qubership.profiler security',
+    'Vulnerability updates must use the Maven groupId even for internal artifacts'
+  );
 }
 
 function assertNoAutomerge(configs) {
@@ -695,6 +782,7 @@ assertBasePolicy(configs.base);
 assertGitHubActionsPolicy(configs['github-actions']);
 assertGoPolicy(configs.go);
 assertGoTidyPolicy(configs['go-tidy']);
+assertMavenGroupIdPolicy(configs['maven-groupid'], configs['netcracker-dependencies']);
 assertNetcrackerPolicy(configs['netcracker-dependencies']);
 assertTestPipelines(configs['test-pipelines']);
 assertAnnotatedVersions(configs['annotated-versions']);

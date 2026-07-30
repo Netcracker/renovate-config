@@ -1,0 +1,15 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": ["Group Maven updates by groupId"],
+  "vulnerabilityAlerts": {
+    "description": ["Group Maven vulnerability updates by groupId without combining other ecosystems"],
+    "groupName": "{{#if (equals datasource 'maven')}}{{{replace ':.*' '' depName}}} security{{else}}{{{datasource}}} {{{depName}}} security{{/if}}"
+  },
+  "packageRules": [
+    {
+      "description": ["Group Maven updates by groupId"],
+      "matchDatasources": ["maven"],
+      "groupName": "{{{replace ':.*' '' depName}}}"
+    }
+  ]
+}
