@@ -5,6 +5,7 @@ const presetNames = [
   'base',
   'github-actions',
   'go',
+  'go-catch-all',
   'go-tidy',
   'maven-groupid',
   'netcracker-dependencies',
@@ -57,6 +58,7 @@ function ruleMatchesDependency(rule, dependency) {
     ['matchPackageNames', dependency.packageName ?? dependency.depName],
     ['matchDepNames', dependency.depName],
     ['matchDepTypes', dependency.depType],
+    ['matchUpdateTypes', dependency.updateType],
   ].every(([matcher, value]) => !rule[matcher] || matchesStringPatterns(rule[matcher], value));
 }
 
@@ -226,6 +228,61 @@ function assertGoTidyPolicy(config) {
   const rule = findRule(config, 'Run go mod tidy after Go module updates');
   assert.deepEqual(rule.matchManagers, ['gomod']);
   assert.deepEqual(rule.postUpdateOptions, ['gomodTidy']);
+}
+
+function assertGoCatchAllPolicy(config) {
+  const rule = findRule(config, 'Group other Go module minor and patch updates');
+  assert.deepEqual(rule.matchManagers, ['gomod']);
+  assert.deepEqual(rule.matchDatasources, ['go']);
+  assert.deepEqual(rule.matchUpdateTypes, ['minor', 'patch']);
+  assert.deepEqual(rule.matchPackageNames, [
+    '!k8s.io/**',
+    '!sigs.k8s.io/**',
+    '!github.com/openshift/**',
+    '!go.opentelemetry.io/**',
+    '!github.com/open-telemetry/**',
+    '!github.com/prometheus/**',
+    '!github.com/Netcracker/**',
+  ]);
+  assert.equal(rule.groupName, 'Other Go modules');
+
+  assert.equal(
+    ruleMatchesDependency(rule, {
+      manager: 'gomod',
+      datasource: 'go',
+      packageName: 'github.com/stretchr/testify',
+      updateType: 'minor',
+    }),
+    true,
+    'Unrelated Go module minor updates must join the catch-all group'
+  );
+  for (const packageName of [
+    'k8s.io/client-go',
+    'go.opentelemetry.io/otel',
+    'github.com/prometheus/client_golang',
+    'github.com/Netcracker/qubership-core-lib-go',
+  ]) {
+    assert.equal(
+      ruleMatchesDependency(rule, {
+        manager: 'gomod',
+        datasource: 'go',
+        packageName,
+        updateType: 'minor',
+      }),
+      false,
+      `${packageName} must retain its capability-preset group`
+    );
+  }
+  assert.equal(
+    ruleMatchesDependency(rule, {
+      manager: 'gomod',
+      datasource: 'go',
+      packageName: 'github.com/stretchr/testify',
+      updateType: 'major',
+    }),
+    false,
+    'Major updates must remain separate from the catch-all group'
+  );
 }
 
 function assertNetcrackerPolicy(config) {
@@ -781,6 +838,7 @@ assertRepositoryPolicy(readJson('renovate.json'));
 assertBasePolicy(configs.base);
 assertGitHubActionsPolicy(configs['github-actions']);
 assertGoPolicy(configs.go);
+assertGoCatchAllPolicy(configs['go-catch-all']);
 assertGoTidyPolicy(configs['go-tidy']);
 assertMavenGroupIdPolicy(configs['maven-groupid'], configs['netcracker-dependencies']);
 assertNetcrackerPolicy(configs['netcracker-dependencies']);
