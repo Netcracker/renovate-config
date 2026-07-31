@@ -16,15 +16,14 @@
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)(?:Dockerfile|Containerfile)(?:\\.[^/]+)?$/"],
       "matchStrings": [
-        "# renovate: datasource=repology depName=alpine_(?<currentValue>\\d+_\\d+)/(?<alpinePackage>[^\\s]+) versioning=(?<packageVersioning>[^\\s]+) syncWith=alpine"
+        "# renovate: datasource=repology depName=alpine_(?<currentValue>\\d+_\\d+)/(?<depName>[^\\s]+) versioning=apk syncWith=alpine"
       ],
       "currentValueTemplate": "{{{ replace '_' '.' currentValue }}}",
       "datasourceTemplate": "docker",
-      "depNameTemplate": "alpine",
       "packageNameTemplate": "alpine",
       "versioningTemplate": "docker",
       "depTypeTemplate": "alpine-release-sync",
-      "autoReplaceStringTemplate": "# renovate: datasource=repology depName=alpine_{{{newMajor}}}_{{{newMinor}}}/{{{alpinePackage}}} versioning={{{packageVersioning}}} syncWith=alpine"
+      "autoReplaceStringTemplate": "# renovate: datasource=repology depName=alpine_{{{newMajor}}}_{{{newMinor}}}/{{{depName}}} versioning=apk syncWith=alpine"
     },
     {
       "description": "Update annotated next-line YAML and template version values.",
