@@ -85,6 +85,36 @@ function extract(manager, content) {
   return compileManager(manager).flatMap((regex) => [...content.matchAll(regex)].map((match) => match.groups));
 }
 
+function extractRuntimeDependencies(manager, content) {
+  const validMatchFields = [
+    'depName',
+    'packageName',
+    'currentValue',
+    'currentDigest',
+    'datasource',
+    'versioning',
+    'extractVersion',
+    'registryUrl',
+    'depType',
+    'indentation',
+  ];
+
+  return compileManager(manager).flatMap((regex) =>
+    [...content.matchAll(regex)].map((match) => {
+      const dependency = {};
+      for (const field of validMatchFields) {
+        const template = manager[`${field}Template`];
+        const value = template ? render(template, match.groups) : match.groups[field];
+        if (value !== undefined) {
+          dependency[field] = value;
+        }
+      }
+      dependency.replaceString = match[0];
+      return dependency;
+    })
+  );
+}
+
 function replaceRegexDependency(manager, content, dependencyIndex, newValue, newDigest) {
   const matches = compileManager(manager).flatMap((regex) => [...content.matchAll(regex)]);
   const match = matches[dependencyIndex];
@@ -103,8 +133,8 @@ function render(template, values) {
       (_, field, expected, ifTrue, ifFalse) => (values[field] === expected ? ifTrue : ifFalse)
     )
     .replaceAll(
-      /\{\{\{replace '([^']+)' '([^']*)' ([^}]+)}}}/g,
-      (_, pattern, replacement, field) => (values[field] ?? '').replace(new RegExp(pattern), replacement)
+      /\{\{\{\s*replace '([^']+)' '([^']*)' ([^}]+)}}}/g,
+      (_, pattern, replacement, field) => (values[field.trim()] ?? '').replace(new RegExp(pattern), replacement)
     )
     .replaceAll(/\{\{\{([^}]+)}}}/g, (_, field) => values[field] ?? '');
 }
@@ -638,7 +668,7 @@ function assertAlpineRepologySync(config) {
   assert.equal(managerMatchesPath(manager, 'containers/Containerfile.runtime'), true);
   assert.equal(managerMatchesPath(manager, 'containers/image.yaml'), false);
   assert.equal(manager.datasourceTemplate, 'docker');
-  assert.equal(manager.depNameTemplate, 'alpine');
+  assert.equal('depNameTemplate' in manager, false);
   assert.equal(manager.packageNameTemplate, 'alpine');
   assert.equal(manager.versioningTemplate, 'docker');
   assert.equal(manager.depTypeTemplate, 'alpine-release-sync');
@@ -655,25 +685,44 @@ function assertAlpineRepologySync(config) {
   assert.deepEqual(
     {
       currentValue: dependencies[0].currentValue,
-      packageName: dependencies[0].alpinePackage,
-      packageVersioning: dependencies[0].packageVersioning,
+      depName: dependencies[0].depName,
     },
     {
       currentValue: '3_23',
-      packageName: 'busybox',
-      packageVersioning: 'apk',
+      depName: 'busybox',
     }
   );
 
-  const replacement = render(manager.autoReplaceStringTemplate, {
-    ...dependencies[0],
+  const runtimeDependencies = extractRuntimeDependencies(manager, fixture);
+  assert.equal(runtimeDependencies.length, 1);
+  assert.deepEqual(runtimeDependencies[0], {
+    depName: 'busybox',
+    packageName: 'alpine',
+    currentValue: '3.23',
+    datasource: 'docker',
+    versioning: 'docker',
+    depType: 'alpine-release-sync',
+    replaceString:
+      '# renovate: datasource=repology depName=alpine_3_23/busybox versioning=apk syncWith=alpine',
+  });
+  const runtimeReplacement = render(manager.autoReplaceStringTemplate, {
+    ...runtimeDependencies[0],
     newMajor: '3',
     newMinor: '25',
   });
   assert.equal(
-    replacement,
-    '# renovate: datasource=repology depName=alpine_3_25/busybox versioning=apk syncWith=alpine'
+    runtimeReplacement,
+    '# renovate: datasource=repology depName=alpine_3_25/busybox versioning=apk syncWith=alpine',
+    'Alpine synchronization must preserve the APK package name after extraction'
   );
+  const updatedRuntimeDependencies = extractRuntimeDependencies(manager, runtimeReplacement);
+  assert.equal(
+    updatedRuntimeDependencies.length,
+    1,
+    'Renovate must extract the annotation again after autoreplace'
+  );
+  assert.equal(updatedRuntimeDependencies[0].currentValue, '3.25');
+  assert.equal(updatedRuntimeDependencies[0].depName, 'busybox');
 
   const rule = findRule(config, 'Group Alpine image and synchronized Repology repository updates');
   assert.deepEqual(rule.matchDatasources, ['docker']);
