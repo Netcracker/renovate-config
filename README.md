@@ -56,6 +56,8 @@ a team-specific preset:
 - `go` groups Kubernetes and OpenShift, OpenTelemetry, Prometheus, and Go toolchain updates. Toolchain updates include
   `go.mod` directives, explicit GitHub Actions Go versions, and official `golang` builder images. The preset does not
   group unrelated dependencies or the `actions/setup-go` action version.
+- `go-catch-all` groups minor and patch updates for Go modules not covered by the `go` or `netcracker-dependencies`
+  presets. Major updates remain separate.
 - `go-tidy` runs `go mod tidy` after Go module updates.
 - `maven-groupid` groups Maven updates by `groupId`. Maven vulnerability updates use the same grouping, while
   vulnerability updates from other ecosystems remain separate by datasource and dependency.
@@ -68,6 +70,19 @@ a team-specific preset:
 
 The `go-tidy` preset is separate because `gomodTidy` can make changes to `go.mod` and `go.sum` that are unrelated to
 the dependency Renovate is updating. Enable it only when those broader module-file changes are acceptable.
+
+The `go-catch-all` preset is separate because grouping unrelated Go modules trades smaller PR volume for a larger
+validation scope. Enable it only when the repository wants one PR for unrelated minor and patch updates:
+
+```json
+{
+  "extends": [
+    "github>Netcracker/renovate-config:go",
+    "github>Netcracker/renovate-config:netcracker-dependencies",
+    "github>Netcracker/renovate-config:go-catch-all"
+  ]
+}
+```
 
 ## Group Maven updates by groupId
 
