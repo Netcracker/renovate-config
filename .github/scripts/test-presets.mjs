@@ -52,7 +52,7 @@ function matchesStringPatterns(patterns, value) {
 }
 
 function ruleMatchesDependency(rule, dependency) {
-  return [
+  const arrayMatchersMatch = [
     ['matchManagers', dependency.manager],
     ['matchDatasources', dependency.datasource],
     ['matchPackageNames', dependency.packageName ?? dependency.depName],
@@ -60,6 +60,9 @@ function ruleMatchesDependency(rule, dependency) {
     ['matchDepTypes', dependency.depType],
     ['matchUpdateTypes', dependency.updateType],
   ].every(([matcher, value]) => !rule[matcher] || matchesStringPatterns(rule[matcher], value));
+  const currentValueMatches =
+    !rule.matchCurrentValue || matchesStringPatterns([rule.matchCurrentValue], dependency.currentValue);
+  return arrayMatchersMatch && currentValueMatches;
 }
 
 function applyPackageRules(dependency, rules) {
@@ -413,6 +416,56 @@ function assertRepositoryPolicy(config) {
   assert.ok(
     config.extends?.includes(':ignoreModulesAndTests'),
     'renovate.json must ignore test and fixture dependency files'
+  );
+}
+
+function assertOrgInheritedPolicy(config) {
+  const profanityFilterAction = {
+    manager: 'github-actions',
+    datasource: 'github-tags',
+    packageName: 'IEvangelist/profanity-filter',
+    currentValue: 'v13.4.6',
+  };
+  assert.equal(
+    applyPackageRules(profanityFilterAction, config.packageRules).enabled,
+    false,
+    'The known broken extracted Action version must be disabled'
+  );
+  assert.equal(
+    applyPackageRules({ ...profanityFilterAction, currentValue: '13.4.6' }, config.packageRules).enabled,
+    false,
+    'The broken version without a v prefix must also be disabled'
+  );
+  assert.equal(
+    applyPackageRules({ ...profanityFilterAction, currentValue: 'v13.4.7' }, config.packageRules).enabled,
+    undefined,
+    'Other versions of the same Action must remain enabled'
+  );
+  assert.equal(
+    applyPackageRules(
+      { ...profanityFilterAction, packageName: 'actions/checkout' },
+      config.packageRules
+    ).enabled,
+    undefined,
+    'Other GitHub Actions must remain enabled'
+  );
+  assert.equal(
+    applyPackageRules(
+      { ...profanityFilterAction, manager: 'custom.regex' },
+      config.packageRules
+    ).enabled,
+    undefined,
+    'The exception must apply only to the GitHub Actions manager'
+  );
+  const projectOverride = {
+    matchManagers: ['github-actions'],
+    matchPackageNames: ['IEvangelist/profanity-filter'],
+    enabled: true,
+  };
+  assert.equal(
+    applyPackageRules(profanityFilterAction, [...config.packageRules, projectOverride]).enabled,
+    true,
+    'A later repository rule must be able to re-enable the Action after a compatible release is available'
   );
 }
 
@@ -884,6 +937,7 @@ function assertGraylogPlugins(config) {
 
 const configs = Object.fromEntries(presetNames.map((name) => [name, readJson(`${name}.json`)]));
 assertRepositoryPolicy(readJson('renovate.json'));
+assertOrgInheritedPolicy(readJson('org-inherited-config.json'));
 assertBasePolicy(configs.base);
 assertGitHubActionsPolicy(configs['github-actions']);
 assertGoPolicy(configs.go);

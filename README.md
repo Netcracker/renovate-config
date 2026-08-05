@@ -25,6 +25,11 @@ for every repository in the organization.
 - Go toolchain and official `golang.org/x/*` updates bypass the delay. Other Go module dependencies keep the standard
   seven-day delay.
 - Groups all `actions/*` GitHub Actions updates into a single PR titled `actions org`.
+- Temporarily disables Renovate updates for the SHA-pinned `IEvangelist/profanity-filter` Action only when Renovate
+  extracts the broken `13.4.6` or `v13.4.6` value from its four-component version comment. Other versions remain
+  enabled. Remove this exception after the exact published tag or alias resolves successfully and the shared workflow
+  uses that reference. Upstream progress is tracked in
+  [IEvangelist/profanity-filter#168](https://github.com/IEvangelist/profanity-filter/issues/168).
 
 ## Overriding for a specific repository
 

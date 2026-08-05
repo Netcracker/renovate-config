@@ -15,6 +15,13 @@
   },
   "packageRules": [
     {
+      "description": ["Disable the broken IEvangelist/profanity-filter v13.4.6 lookup until its SHA-pinned GitHub Action supports Renovate-compatible version comments (IEvangelist/profanity-filter#168)"],
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["IEvangelist/profanity-filter"],
+      "matchCurrentValue": "/^v?13\\.4\\.6$/",
+      "enabled": false
+    },
+    {
       "description": ["Group all actions/* GitHub Actions into a single PR"],
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["actions/**"],
