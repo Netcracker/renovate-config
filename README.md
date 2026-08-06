@@ -227,18 +227,20 @@ pipeline_branch: 'ddc741b38bac5dc4834b8f6827c9f6d16abf0db8' # v1.14.1 renovate: 
 
 ## `apm.json` preset
 
-[`apm.json`](./apm.json) detects APM package references in `apm.yml` files and proposes semantic-version bumps for
-tag-tracked entries via the `github-tags` datasource. It covers the `dependencies.apm` list (`package#v1.2.0`) and the
-`marketplace.packages` block (`ref: v1.2.0`).
+[`apm.json`](./apm.json) detects APM package references in `apm.yml` files. It handles dependencies and marketplace
+sources differently because only dependencies are covered by `apm.lock.yaml`.
 
 Design notes:
 
-- `apm.yml` records only a version tag or a branch name. Resolved commit SHAs live in `apm.lock.yaml`, produced by
-  `apm install`, not in `apm.yml`.
-- Tag refs advance to newer semantic-version tags (for example `v0.1.0` → `v1.0.1`).
-- Branch refs (`package#main`, `ref: main`) are left untouched; a branch carries no version to bump.
-- When an entry still carries a legacy `#<sha>  # v0.1.0` pin, the first tag bump rewrites it to a clean `#v0.1.0` and
-  drops the SHA. The preset never writes a digest back into `apm.yml`.
+- Dependencies use a tag such as `package#v1.2.0`. Renovate advances the tag, while `apm.lock.yaml` stores the resolved
+  commit SHA. Dependency branch refs such as `package#main` remain unchanged.
+- A legacy dependency pin such as `package#<sha>  # v1.2.0` becomes `package#v1.3.0` on its first tag update. The
+  dependency SHA remains in `apm.lock.yaml`.
+- Marketplace sources use an immutable SHA with a source-ref comment, such as `ref: <sha>  # v1.2.0` or
+  `ref: <sha>  # main`, because `apm.lock.yaml` does not cover these entries.
+- Marketplace release updates change both the SHA and the semantic-version tag. Marketplace branch updates change the
+  SHA to the branch head and keep the branch comment.
+- APM updates remain under manual review.
 
 Use it from a repository-local config:
 

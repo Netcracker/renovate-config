@@ -19,27 +19,25 @@
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)apm\\.yml$/"],
       "matchStrings": [
-        "(?<depPrefix>-[^\\S\\n]+name:[^\\S\\n]+[^\\n]+\\n[^\\S\\n]+source:[^\\S\\n]+(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\n[^\\S\\n]+subdir:[^\\S\\n]+(?<apmSubdir>[^\\n]+)\\n[^\\S\\n]+ref:[^\\S\\n]+)(?<currentDigest>[0-9a-f]{40})\\s+#\\s+(?<currentValue>v?\\d+\\.\\d+\\.\\d+[A-Za-z0-9_.+-]*)"
+        "(?:-[^\\S\\n]+name:[^\\S\\n]+[^\\n]+\\n[^\\S\\n]+source:[^\\S\\n]+(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\n[^\\S\\n]+subdir:[^\\S\\n]+(?<apmSubdir>[^\\n]+)\\n[^\\S\\n]+ref:[^\\S\\n]+)(?<currentDigest>[0-9a-f]{40})\\s+#\\s+(?<currentValue>v?\\d+\\.\\d+\\.\\d+[A-Za-z0-9_.+-]*)"
       ],
       "datasourceTemplate": "github-tags",
       "versioningTemplate": "semver",
       "depNameTemplate": "{{{packageName}}}/{{{apmSubdir}}}",
       "packageNameTemplate": "{{{packageName}}}",
-      "depTypeTemplate": "apm",
-      "autoReplaceStringTemplate": "{{{depPrefix}}}{{{newDigest}}}  # {{{newValue}}}"
+      "depTypeTemplate": "apm"
     },
     {
       "description": "Update marketplace APM entries pinned to branches.",
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)apm\\.yml$/"],
       "matchStrings": [
-        "(?<depPrefix>-[^\\S\\n]+name:[^\\S\\n]+[^\\n]+\\n[^\\S\\n]+source:[^\\S\\n]+(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\n[^\\S\\n]+subdir:[^\\S\\n]+(?<apmSubdir>[^\\n]+)\\n[^\\S\\n]+ref:[^\\S\\n]+)(?<currentDigest>[0-9a-f]{40})\\s+#\\s+(?<currentValue>[A-UW-Za-uw-z][A-Za-z0-9_./-]*|[vV][A-Za-z_/-][A-Za-z0-9_./-]*)"
+        "(?:-[^\\S\\n]+name:[^\\S\\n]+[^\\n]+\\n[^\\S\\n]+source:[^\\S\\n]+(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\n[^\\S\\n]+subdir:[^\\S\\n]+(?<apmSubdir>[^\\n]+)\\n[^\\S\\n]+ref:[^\\S\\n]+)(?<currentDigest>[0-9a-f]{40})\\s+#\\s+(?<currentValue>[A-UW-Za-uw-z][A-Za-z0-9_./-]*|[vV][A-Za-z_/-][A-Za-z0-9_./-]*)"
       ],
       "datasourceTemplate": "git-refs",
       "packageNameTemplate": "https://github.com/{{{packageName}}}.git",
       "depNameTemplate": "{{{packageName}}}/{{{apmSubdir}}}",
-      "depTypeTemplate": "apm",
-      "autoReplaceStringTemplate": "{{{depPrefix}}}{{{newDigest}}}  # {{{currentValue}}}"
+      "depTypeTemplate": "apm"
     }
   ],
   "packageRules": [
