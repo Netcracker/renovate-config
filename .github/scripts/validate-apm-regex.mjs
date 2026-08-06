@@ -61,10 +61,13 @@ for (const manager of [marketReleaseManager, marketBranchManager]) {
   if (!hasNamedDigest(manager)) {
     throw new Error(`Marketplace manager ${JSON.stringify(manager.description)} must keep the SHA pin (currentDigest)`);
   }
+  if (manager.matchStrings.some((matchString) => matchString.includes('(?<depPrefix>'))) {
+    throw new Error(`Marketplace manager ${JSON.stringify(manager.description)} must not capture unused depPrefix`);
+  }
 }
 
-// Renovate discards arbitrary capture groups after extraction. Auto-replace templates receive only these fields.
-const runtimeFields = [
+// Renovate keeps only these fields from the regex captures; every other group is dropped at extraction.
+const extractedFields = [
   'currentDigest',
   'currentValue',
   'datasource',
@@ -83,7 +86,7 @@ function render(template, values) {
 
 function extractRuntimeDependency(manager, match) {
   const dependency = {};
-  for (const field of runtimeFields) {
+  for (const field of extractedFields) {
     const template = manager[`${field}Template`];
     const value = template ? render(template, match.groups) : match.groups[field];
     if (value !== undefined) {
@@ -261,6 +264,9 @@ const groupedBranchFixture = `marketplace:
 `;
 const groupedMatches = [...groupedBranchFixture.matchAll(new RegExp(marketBranchManager.matchStrings[0], 'g'))];
 const groupedDepNames = groupedMatches.map((match) => extractRuntimeDependency(marketBranchManager, match).depName);
+if (groupedDepNames.length !== 3) {
+  throw new Error(`Grouped marketplace fixture must yield three dependencies, got ${JSON.stringify(groupedDepNames)}`);
+}
 const updatedFirstBranch = replaceFirstMatch(marketBranchManager, groupedBranchFixture, {
   newDigest: '29c324bf6e893195c8c87eb1b5992947b7f64d6f',
 });
