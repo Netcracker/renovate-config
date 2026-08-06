@@ -61,14 +61,53 @@ for (const manager of [marketReleaseManager, marketBranchManager]) {
   if (!hasNamedDigest(manager)) {
     throw new Error(`Marketplace manager ${JSON.stringify(manager.description)} must keep the SHA pin (currentDigest)`);
   }
-  if (!manager.autoReplaceStringTemplate.includes('newDigest')) {
-    throw new Error(`Marketplace manager ${JSON.stringify(manager.description)} must update the digest via newDigest`);
-  }
 }
 
-function applyTemplate(manager, match, { newDigest, newValue }) {
-  const templateValues = { ...match.groups, newDigest, newValue };
-  return manager.autoReplaceStringTemplate.replaceAll(/\{\{\{([^}]+)}}}/g, (_, field) => templateValues[field] ?? '');
+// Renovate discards arbitrary capture groups after extraction. Auto-replace templates receive only these fields.
+const runtimeFields = [
+  'currentDigest',
+  'currentValue',
+  'datasource',
+  'depName',
+  'depType',
+  'extractVersion',
+  'indentation',
+  'packageName',
+  'registryUrl',
+  'versioning',
+];
+
+function render(template, values) {
+  return template.replaceAll(/\{\{\{([^}]+)}}}/g, (_, field) => values[field] ?? '');
+}
+
+function extractRuntimeDependency(manager, match) {
+  const dependency = {};
+  for (const field of runtimeFields) {
+    const template = manager[`${field}Template`];
+    const value = template ? render(template, match.groups) : match.groups[field];
+    if (value !== undefined) {
+      dependency[field] = value;
+    }
+  }
+  dependency.replaceString = match[0];
+  return dependency;
+}
+
+function replaceDependency(manager, match, update) {
+  const dependency = extractRuntimeDependency(manager, match);
+  if (manager.autoReplaceStringTemplate) {
+    return render(manager.autoReplaceStringTemplate, { ...dependency, ...update });
+  }
+
+  let replacement = match[0];
+  if (dependency.currentValue && update.newValue) {
+    replacement = replacement.replace(dependency.currentValue, update.newValue);
+  }
+  if (dependency.currentDigest && update.newDigest) {
+    replacement = replacement.replace(dependency.currentDigest, update.newDigest);
+  }
+  return replacement;
 }
 
 function firstMatch(manager, content) {
@@ -80,7 +119,7 @@ function replaceFirstMatch(manager, content, update) {
   if (!match) {
     throw new Error(`Manager ${JSON.stringify(manager.description)} matched nothing in the fixture`);
   }
-  const replacement = applyTemplate(manager, match, update);
+  const replacement = replaceDependency(manager, match, update);
   return `${content.slice(0, match.index)}${replacement}${content.slice(match.index + match[0].length)}`;
 }
 
@@ -126,7 +165,7 @@ const branchDependencyMatch = firstMatch(depsManager, branchDependencyFixture);
 if (branchDependencyMatch?.groups.currentValue !== 'main') {
   throw new Error(`Dependencies manager must read the branch name, got ${JSON.stringify(branchDependencyMatch?.groups.currentValue)}`);
 }
-const collapsedBranch = applyTemplate(depsManager, branchDependencyMatch, { newValue: 'main' });
+const collapsedBranch = replaceDependency(depsManager, branchDependencyMatch, { newValue: 'main' });
 if (/[0-9a-f]{40}/.test(collapsedBranch) || collapsedBranch.includes('  # ')) {
   throw new Error(`Collapsing a branch dependency must drop the digest, got: ${JSON.stringify(collapsedBranch)}`);
 }
@@ -200,6 +239,42 @@ if (!bumpedBranch.includes(`ref: ${newDigest}  # main`) || bumpedBranch.includes
 }
 if (firstMatch(marketBranchManager, marketReleaseFixture)) {
   throw new Error('Marketplace branch manager must not match a version-tag ref');
+}
+
+// Updating one grouped dependency must preserve every marketplace entry and its extraction order.
+const groupedBranchFixture = `marketplace:
+  packages:
+    - name: api-diff-authoring
+      source: Netcracker/qubership-apihub-api-diff
+      subdir: agent-packages/api-diff-authoring
+      ref: 7b0bf733df7288bf051ec2e5719d7ffc2753566f  # develop
+
+    - name: api-unifier-authoring
+      source: Netcracker/qubership-apihub-api-unifier
+      subdir: agent-packages/api-unifier-authoring
+      ref: 635ce729bd94f42a61a1c036bc3b066a20ab7755  # develop
+
+    - name: api-unifier-testing
+      source: Netcracker/qubership-apihub-api-unifier
+      subdir: agent-packages/api-unifier-testing
+      ref: 635ce729bd94f42a61a1c036bc3b066a20ab7755  # develop
+`;
+const groupedMatches = [...groupedBranchFixture.matchAll(new RegExp(marketBranchManager.matchStrings[0], 'g'))];
+const groupedDepNames = groupedMatches.map((match) => extractRuntimeDependency(marketBranchManager, match).depName);
+const updatedFirstBranch = replaceFirstMatch(marketBranchManager, groupedBranchFixture, {
+  newDigest: '29c324bf6e893195c8c87eb1b5992947b7f64d6f',
+});
+const updatedGroupedMatches = [...updatedFirstBranch.matchAll(new RegExp(marketBranchManager.matchStrings[0], 'g'))];
+const updatedGroupedDepNames = updatedGroupedMatches.map(
+  (match) => extractRuntimeDependency(marketBranchManager, match).depName
+);
+if (JSON.stringify(updatedGroupedDepNames) !== JSON.stringify(groupedDepNames)) {
+  throw new Error(
+    `Marketplace branch update changed dependency extraction from ${JSON.stringify(groupedDepNames)} to ${JSON.stringify(updatedGroupedDepNames)}`
+  );
+}
+if (!updatedFirstBranch.includes('ref: 29c324bf6e893195c8c87eb1b5992947b7f64d6f  # develop')) {
+  throw new Error(`Marketplace branch update did not preserve the package block:\n${updatedFirstBranch}`);
 }
 
 // Captured values must span the whole ref token, so a malformed value never leaves a suffix behind.

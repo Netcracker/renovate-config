@@ -25,8 +25,7 @@
       "versioningTemplate": "semver",
       "depNameTemplate": "{{{packageName}}}/{{{apmSubdir}}}",
       "packageNameTemplate": "{{{packageName}}}",
-      "depTypeTemplate": "apm",
-      "autoReplaceStringTemplate": "{{{depPrefix}}}{{{newDigest}}}  # {{{newValue}}}"
+      "depTypeTemplate": "apm"
     },
     {
       "description": "Update marketplace APM entries pinned to branches.",
@@ -38,8 +37,7 @@
       "datasourceTemplate": "git-refs",
       "packageNameTemplate": "https://github.com/{{{packageName}}}.git",
       "depNameTemplate": "{{{packageName}}}/{{{apmSubdir}}}",
-      "depTypeTemplate": "apm",
-      "autoReplaceStringTemplate": "{{{depPrefix}}}{{{newDigest}}}  # {{{currentValue}}}"
+      "depTypeTemplate": "apm"
     }
   ],
   "packageRules": [
