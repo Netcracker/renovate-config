@@ -467,6 +467,77 @@ function assertOrgInheritedPolicy(config) {
     true,
     'A later repository rule must be able to re-enable the Action after a compatible release is available'
   );
+
+  // Renovate normalizes "0 days" to null before applying package rules. Keep the pinDigest rule last so this
+  // raw-rule merger also verifies policy precedence and catches a future inherited rule that restores the delay.
+  for (const packageName of ['alpine', 'ghcr.io/netcracker/example']) {
+    const pinDigest = applyPackageRules(
+      {
+        manager: 'dockerfile',
+        datasource: 'docker',
+        packageName,
+        updateType: 'pinDigest',
+      },
+      config.packageRules
+    );
+    assert.equal(
+      pinDigest.minimumReleaseAge,
+      null,
+      `Pinning ${packageName} must not wait for a release timestamp`
+    );
+  }
+
+  const versionPin = applyPackageRules(
+    {
+      manager: 'npm',
+      datasource: 'npm',
+      packageName: 'example-package',
+      updateType: 'pin',
+    },
+    config.packageRules
+  );
+  assert.equal(
+    versionPin.minimumReleaseAgeBehaviour,
+    'timestamp-optional',
+    'Version pins must proceed when Renovate cannot attach a release timestamp'
+  );
+
+  const dockerDigest = applyPackageRules(
+    {
+      manager: 'dockerfile',
+      datasource: 'docker',
+      packageName: 'alpine',
+      updateType: 'digest',
+    },
+    config.packageRules
+  );
+  assert.equal(
+    dockerDigest.minimumReleaseAgeBehaviour,
+    'timestamp-optional',
+    'Docker digest updates must proceed when their registry does not provide a release timestamp'
+  );
+
+  for (const dependency of [
+    {
+      manager: 'npm',
+      datasource: 'npm',
+      packageName: 'example-package',
+      updateType: 'patch',
+    },
+    {
+      manager: 'gomod',
+      datasource: 'go',
+      packageName: 'example.com/module',
+      updateType: 'digest',
+    },
+  ]) {
+    const result = applyPackageRules(dependency, config.packageRules);
+    assert.equal(
+      result.minimumReleaseAgeBehaviour,
+      undefined,
+      `${dependency.datasource} ${dependency.updateType} updates must retain the timestamp-required default`
+    );
+  }
 }
 
 function assertAnnotatedVersions(config) {

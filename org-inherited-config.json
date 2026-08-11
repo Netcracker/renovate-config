@@ -22,6 +22,17 @@
       "enabled": false
     },
     {
+      "description": ["Allow version pins when Renovate cannot attach a release timestamp"],
+      "matchUpdateTypes": ["pin"],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
+      "description": ["Allow Docker digest updates when the registry does not provide a release timestamp"],
+      "matchDatasources": ["docker"],
+      "matchUpdateTypes": ["digest"],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
       "description": ["Group all actions/* GitHub Actions into a single PR"],
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["actions/**"],
@@ -61,6 +72,11 @@
       "matchDatasources": ["go"],
       "matchPackageNames": ["golang.org/x/**"],
       "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": ["Do not delay pinning mutable references; keep last to override inherited release-age rules"],
+      "matchUpdateTypes": ["pinDigest"],
+      "minimumReleaseAge": null
     }
   ]
 }

@@ -20,6 +20,10 @@ for every repository in the organization.
 - `minimumReleaseAge: "7 days"` delays updates until a release has been public for one week.
 - `internalChecksFilter: "strict"` proposes the latest mature version while a newer release is still inside the
   release-age window.
+- Version pins may proceed when Renovate cannot attach a release timestamp.
+- Track this limitation in [Renovate issue #40288](https://github.com/renovatebot/renovate/issues/40288).
+- Docker digest updates still wait seven days when a registry provides a timestamp but may proceed when it does not.
+- Digest pinning proceeds immediately because it only freezes a mutable reference already in use.
 - `osvVulnerabilityAlerts: true` enables OSV.dev in addition to GitHub Security Advisories.
 - Security updates bypass the seven-day delay. The `vulnerabilityAlerts` block opens vulnerability PRs immediately.
 - Go toolchain and official `golang.org/x/*` updates bypass the delay. Other Go module dependencies keep the standard
@@ -42,6 +46,10 @@ Repository-local settings win on conflicts. Example:
   "minimumReleaseAge": "3 days"
 }
 ```
+
+The pin and digest exceptions are package rules.
+Use later repository package rules to restore stricter checks.
+A top-level `minimumReleaseAgeBehaviour` value does not override a matching inherited package rule.
 
 To opt a repository out entirely, set `"enabled": false` (or remove the Mend installation from that repo).
 
