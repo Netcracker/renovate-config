@@ -47,6 +47,10 @@ Repository-local settings win on conflicts. Example:
 }
 ```
 
+The pin and digest exceptions are package rules.
+Use later repository package rules to restore stricter checks.
+A top-level `minimumReleaseAgeBehaviour` value does not override a matching inherited package rule.
+
 To opt a repository out entirely, set `"enabled": false` (or remove the Mend installation from that repo).
 
 ## `default.json` preset
