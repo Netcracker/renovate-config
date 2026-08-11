@@ -22,11 +22,6 @@
       "enabled": false
     },
     {
-      "description": ["Do not delay pinning mutable references"],
-      "matchUpdateTypes": ["pinDigest"],
-      "minimumReleaseAge": null
-    },
-    {
       "description": ["Allow version pins when Renovate cannot attach a release timestamp"],
       "matchUpdateTypes": ["pin"],
       "minimumReleaseAgeBehaviour": "timestamp-optional"
@@ -77,6 +72,11 @@
       "matchDatasources": ["go"],
       "matchPackageNames": ["golang.org/x/**"],
       "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": ["Do not delay pinning mutable references; keep last to override inherited release-age rules"],
+      "matchUpdateTypes": ["pinDigest"],
+      "minimumReleaseAge": null
     }
   ]
 }

@@ -468,16 +468,24 @@ function assertOrgInheritedPolicy(config) {
     'A later repository rule must be able to re-enable the Action after a compatible release is available'
   );
 
-  const pinDigest = applyPackageRules(
-    {
-      manager: 'dockerfile',
-      datasource: 'docker',
-      packageName: 'alpine',
-      updateType: 'pinDigest',
-    },
-    config.packageRules
-  );
-  assert.equal(pinDigest.minimumReleaseAge, null, 'Pinning a mutable reference must not wait for a release timestamp');
+  // Renovate normalizes "0 days" to null before applying package rules. Keep the pinDigest rule last so this
+  // raw-rule merger also verifies policy precedence and catches a future inherited rule that restores the delay.
+  for (const packageName of ['alpine', 'ghcr.io/netcracker/example']) {
+    const pinDigest = applyPackageRules(
+      {
+        manager: 'dockerfile',
+        datasource: 'docker',
+        packageName,
+        updateType: 'pinDigest',
+      },
+      config.packageRules
+    );
+    assert.equal(
+      pinDigest.minimumReleaseAge,
+      null,
+      `Pinning ${packageName} must not wait for a release timestamp`
+    );
+  }
 
   const versionPin = applyPackageRules(
     {
