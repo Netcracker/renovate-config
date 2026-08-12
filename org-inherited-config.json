@@ -33,6 +33,13 @@
       "minimumReleaseAgeBehaviour": "timestamp-optional"
     },
     {
+      "description": ["Allow GitHub Actions digest updates when Renovate cannot attach a release timestamp"],
+      "matchManagers": ["github-actions"],
+      "matchDatasources": ["github-tags"],
+      "matchUpdateTypes": ["digest"],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
       "description": ["Group all actions/* GitHub Actions into a single PR"],
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["actions/**"],
