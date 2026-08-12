@@ -33,6 +33,12 @@
       "minimumReleaseAgeBehaviour": "timestamp-optional"
     },
     {
+      "description": ["Allow GitHub tag digest updates when the datasource does not report a release timestamp"],
+      "matchDatasources": ["github-tags"],
+      "matchUpdateTypes": ["digest"],
+      "minimumReleaseAgeBehaviour": "timestamp-optional"
+    },
+    {
       "description": ["Group all actions/* GitHub Actions into a single PR"],
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["actions/**"],

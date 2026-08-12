@@ -22,7 +22,10 @@ for every repository in the organization.
   release-age window.
 - Version pins may proceed when Renovate cannot attach a release timestamp.
 - Track this limitation in [Renovate issue #40288](https://github.com/renovatebot/renovate/issues/40288).
-- Docker digest updates still wait seven days when a registry provides a timestamp but may proceed when it does not.
+- Docker and GitHub tag digest updates wait seven days when the datasource reports a release timestamp.
+- A digest update with no release timestamp proceeds immediately. A SHA-pinned Action with a floating major comment
+  such as `# v4` has no exact release to age against, so its digest updates have no delay. Use an exact version comment
+  such as `# v4.6.0` to keep the seven-day delay.
 - Digest pinning proceeds immediately because it only freezes a mutable reference already in use.
 - `osvVulnerabilityAlerts: true` enables OSV.dev in addition to GitHub Security Advisories.
 - Security updates bypass the seven-day delay. The `vulnerabilityAlerts` block opens vulnerability PRs immediately.

@@ -502,20 +502,55 @@ function assertOrgInheritedPolicy(config) {
     'Version pins must proceed when Renovate cannot attach a release timestamp'
   );
 
-  const dockerDigest = applyPackageRules(
+  const dockerDigestRule = findRule(config, 'Allow Docker digest updates when the registry does not provide');
+  assert.deepEqual(dockerDigestRule.matchDatasources, ['docker']);
+  assert.deepEqual(dockerDigestRule.matchUpdateTypes, ['digest']);
+  assert.equal(dockerDigestRule.minimumReleaseAgeBehaviour, 'timestamp-optional');
+
+  const githubActionsDigestRule = findRule(
+    config,
+    'Allow GitHub tag digest updates when the datasource does not report a release timestamp'
+  );
+  assert.equal('matchManagers' in githubActionsDigestRule, false);
+  assert.deepEqual(githubActionsDigestRule.matchDatasources, ['github-tags']);
+  assert.deepEqual(githubActionsDigestRule.matchUpdateTypes, ['digest']);
+  assert.equal(githubActionsDigestRule.minimumReleaseAgeBehaviour, 'timestamp-optional');
+
+  for (const dependency of [
     {
       manager: 'dockerfile',
       datasource: 'docker',
       packageName: 'alpine',
       updateType: 'digest',
     },
-    config.packageRules
-  );
-  assert.equal(
-    dockerDigest.minimumReleaseAgeBehaviour,
-    'timestamp-optional',
-    'Docker digest updates must proceed when their registry does not provide a release timestamp'
-  );
+    {
+      manager: 'github-actions',
+      datasource: 'github-tags',
+      packageName: 'docker/login-action',
+      updateType: 'digest',
+    },
+    {
+      manager: 'custom.regex',
+      datasource: 'github-tags',
+      packageName: 'example/third-party-package',
+      updateType: 'digest',
+    },
+  ]) {
+    const digest = applyPackageRules(
+      { ...dependency, minimumReleaseAge: config.minimumReleaseAge },
+      config.packageRules
+    );
+    assert.equal(
+      digest.minimumReleaseAgeBehaviour,
+      'timestamp-optional',
+      `${dependency.datasource} digest updates must proceed when no release timestamp is available`
+    );
+    assert.equal(
+      digest.minimumReleaseAge,
+      '7 days',
+      `${dependency.datasource} digest updates with a release timestamp must retain the seven-day delay`
+    );
+  }
 
   for (const dependency of [
     {
@@ -528,6 +563,18 @@ function assertOrgInheritedPolicy(config) {
       manager: 'gomod',
       datasource: 'go',
       packageName: 'example.com/module',
+      updateType: 'digest',
+    },
+    {
+      manager: 'github-actions',
+      datasource: 'github-tags',
+      packageName: 'docker/login-action',
+      updateType: 'patch',
+    },
+    {
+      manager: 'github-actions',
+      datasource: 'github-digest',
+      packageName: 'docker/login-action',
       updateType: 'digest',
     },
   ]) {
