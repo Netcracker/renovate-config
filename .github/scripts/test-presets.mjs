@@ -509,9 +509,9 @@ function assertOrgInheritedPolicy(config) {
 
   const githubActionsDigestRule = findRule(
     config,
-    'Allow GitHub Actions digest updates when Renovate cannot attach a release timestamp'
+    'Allow GitHub tag digest updates when the datasource does not report a release timestamp'
   );
-  assert.deepEqual(githubActionsDigestRule.matchManagers, ['github-actions']);
+  assert.equal('matchManagers' in githubActionsDigestRule, false);
   assert.deepEqual(githubActionsDigestRule.matchDatasources, ['github-tags']);
   assert.deepEqual(githubActionsDigestRule.matchUpdateTypes, ['digest']);
   assert.equal(githubActionsDigestRule.minimumReleaseAgeBehaviour, 'timestamp-optional');
@@ -527,6 +527,12 @@ function assertOrgInheritedPolicy(config) {
       manager: 'github-actions',
       datasource: 'github-tags',
       packageName: 'docker/login-action',
+      updateType: 'digest',
+    },
+    {
+      manager: 'custom.regex',
+      datasource: 'github-tags',
+      packageName: 'example/third-party-package',
       updateType: 'digest',
     },
   ]) {
@@ -564,6 +570,12 @@ function assertOrgInheritedPolicy(config) {
       datasource: 'github-tags',
       packageName: 'docker/login-action',
       updateType: 'patch',
+    },
+    {
+      manager: 'github-actions',
+      datasource: 'github-digest',
+      packageName: 'docker/login-action',
+      updateType: 'digest',
     },
   ]) {
     const result = applyPackageRules(dependency, config.packageRules);

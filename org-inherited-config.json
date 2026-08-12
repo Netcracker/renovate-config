@@ -33,8 +33,7 @@
       "minimumReleaseAgeBehaviour": "timestamp-optional"
     },
     {
-      "description": ["Allow GitHub Actions digest updates when Renovate cannot attach a release timestamp"],
-      "matchManagers": ["github-actions"],
+      "description": ["Allow GitHub tag digest updates when the datasource does not report a release timestamp"],
       "matchDatasources": ["github-tags"],
       "matchUpdateTypes": ["digest"],
       "minimumReleaseAgeBehaviour": "timestamp-optional"
