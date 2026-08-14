@@ -38,11 +38,26 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": [
         "golang",
+        "library/golang",
         "docker.io/library/golang",
         "index.docker.io/library/golang",
         "registry-1.docker.io/library/golang"
       ],
       "groupName": "Go toolchain"
+    },
+    {
+      "description": ["Update explicit Go and Alpine builder versions together"],
+      "matchManagers": ["dockerfile"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": [
+        "golang",
+        "library/golang",
+        "docker.io/library/golang",
+        "index.docker.io/library/golang",
+        "registry-1.docker.io/library/golang"
+      ],
+      "matchCurrentValue": "/^\\d+\\.\\d+\\.\\d+-alpine3\\.\\d+$/",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-alpine3\\.(?<build>\\d+)$"
     }
   ]
 }

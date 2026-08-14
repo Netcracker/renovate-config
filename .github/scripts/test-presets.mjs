@@ -189,10 +189,11 @@ function assertGoPolicy(config) {
     'Group Go toolchain versions',
     'Group explicit GitHub Actions Go versions with Go toolchain updates',
     'Group official Go builder images with Go toolchain updates',
+    'Update explicit Go and Alpine builder versions together',
   ]) {
     findRule(config, description);
   }
-  assert.equal(config.packageRules.length, 6, 'go.json must not group unrelated Go dependencies');
+  assert.equal(config.packageRules.length, 7, 'go.json must not group unrelated Go dependencies');
   const kubernetes = findRule(config, 'Group Kubernetes Go modules');
   assert.deepEqual(kubernetes.matchPackageNames, [
     'k8s.io/**',
@@ -231,6 +232,7 @@ function assertGoPolicy(config) {
   const builderImage = findRule(config, 'Group official Go builder images with Go toolchain updates');
   for (const depName of [
     'golang',
+    'library/golang',
     'docker.io/library/golang',
     'index.docker.io/library/golang',
     'registry-1.docker.io/library/golang',
@@ -254,6 +256,52 @@ function assertGoPolicy(config) {
     }),
     false,
     'Unrelated Docker images must stay outside the Go toolchain group'
+  );
+
+  const explicitAlpineBuilder = findRule(config, 'Update explicit Go and Alpine builder versions together');
+  assert.equal(
+    explicitAlpineBuilder.versioning,
+    'regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-alpine3\\.(?<build>\\d+)$'
+  );
+  for (const packageName of [
+    'golang',
+    'library/golang',
+    'docker.io/library/golang',
+    'index.docker.io/library/golang',
+    'registry-1.docker.io/library/golang',
+  ]) {
+    assert.equal(
+      ruleMatchesDependency(explicitAlpineBuilder, {
+        manager: 'dockerfile',
+        datasource: 'docker',
+        packageName,
+        currentValue: '1.26.4-alpine3.22',
+      }),
+      true,
+      `The explicit ${packageName} Alpine version must be eligible for synchronized updates`
+    );
+  }
+  for (const currentValue of ['1.26.6-alpine', '1.26.6-bookworm', '1.26.6-alpine4.0']) {
+    assert.equal(
+      ruleMatchesDependency(explicitAlpineBuilder, {
+        manager: 'dockerfile',
+        datasource: 'docker',
+        packageName: 'golang',
+        currentValue,
+      }),
+      false,
+      `${currentValue} must retain the default Docker versioning policy`
+    );
+  }
+  assert.equal(
+    ruleMatchesDependency(explicitAlpineBuilder, {
+      manager: 'dockerfile',
+      datasource: 'docker',
+      packageName: 'alpine',
+      currentValue: '3.22',
+    }),
+    false,
+    'The rule must not change unrelated Docker images'
   );
 }
 
