@@ -71,7 +71,9 @@ a team-specific preset:
 - `github-actions` groups third-party and Netcracker actions separately, with major updates in separate groups.
 - `go` groups Kubernetes and OpenShift, OpenTelemetry, Prometheus, and Go toolchain updates. Toolchain updates include
   `go.mod` directives, explicit GitHub Actions Go versions, and official `golang` builder images. The preset does not
-  group unrelated dependencies or the `actions/setup-go` action version.
+  group unrelated dependencies or the `actions/setup-go` action version. For explicit builder tags such as
+  `1.26.5-alpine3.24`, it updates the Go and Alpine 3 versions together while retaining the explicit Alpine version.
+  Generic Alpine tags and other image variants keep Renovate's default Docker versioning behavior.
 - `go-catch-all` groups minor and patch updates for Go modules not covered by the `go` or `netcracker-dependencies`
   presets. Major updates remain separate.
 - `go-tidy` runs `go mod tidy` after Go module updates.
