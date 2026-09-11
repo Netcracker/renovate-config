@@ -642,28 +642,37 @@ function assertOrgInheritedPolicy(config) {
   }
 
   const goDirective = { manager: 'gomod', datasource: 'golang-version', depName: 'go', depType: 'golang' };
-  const goDirectiveResult = applyPackageRules(goDirective, config.packageRules);
-  assert.equal(
-    goDirectiveResult.minimumReleaseAge,
-    '1095 days',
-    'The go directive must move only to Go releases at least three years old'
-  );
-  assert.equal(goDirectiveResult.rangeStrategy, 'bump', 'The go directive must be bumped, not left as a range');
+  for (const updateType of ['patch', 'minor', 'major']) {
+    const goDirectiveResult = applyPackageRules({ ...goDirective, updateType }, config.packageRules);
+    assert.equal(
+      goDirectiveResult.minimumReleaseAge,
+      '1095 days',
+      `A ${updateType} update of the go directive must wait until the Go release is three years old`
+    );
+    assert.equal(goDirectiveResult.rangeStrategy, 'bump', 'The go directive must be bumped, not left as a range');
+  }
 
-  const toolchainDirective = applyPackageRules({ ...goDirective, depType: 'toolchain' }, config.packageRules);
-  assert.equal(
-    toolchainDirective.minimumReleaseAge,
-    '0 days',
-    'The toolchain directive must update without the release-age delay'
-  );
-  assert.equal(toolchainDirective.rangeStrategy, undefined, 'The toolchain directive must keep the default strategy');
-
-  const miseGoVersion = applyPackageRules(
+  for (const dependency of [
+    { ...goDirective, depType: 'toolchain' },
     { manager: 'mise', datasource: 'golang-version', depName: 'go' },
-    config.packageRules
-  );
-  assert.equal(miseGoVersion.minimumReleaseAge, '0 days', 'Go versions outside go.mod must update without the delay');
-  assert.equal(miseGoVersion.rangeStrategy, undefined, 'Go versions outside go.mod must keep the default strategy');
+  ]) {
+    const patch = applyPackageRules({ ...dependency, updateType: 'patch' }, config.packageRules);
+    assert.equal(
+      patch.minimumReleaseAge,
+      '0 days',
+      `A ${dependency.manager} Go patch update must not wait, since Go ships security fixes in patch releases`
+    );
+    assert.equal(patch.rangeStrategy, undefined, `The ${dependency.manager} Go version must keep the default strategy`);
+
+    for (const updateType of ['minor', 'major']) {
+      const result = applyPackageRules({ ...dependency, updateType }, config.packageRules);
+      assert.equal(
+        result.minimumReleaseAge,
+        '90 days',
+        `A ${dependency.manager} Go ${updateType} update must wait until linters built with an older Go catch up`
+      );
+    }
+  }
 }
 
 function assertAnnotatedVersions(config) {
