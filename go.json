@@ -26,6 +26,13 @@
       "groupName": "Go toolchain"
     },
     {
+      "description": ["Keep the go directive in go.mod out of the Go toolchain group, so a language version bump never delays a toolchain update"],
+      "matchManagers": ["gomod"],
+      "matchDepNames": ["go"],
+      "matchDepTypes": ["golang"],
+      "groupName": "Go directive"
+    },
+    {
       "description": ["Group explicit GitHub Actions Go versions with Go toolchain updates"],
       "matchManagers": ["github-actions"],
       "matchDatasources": ["github-releases"],

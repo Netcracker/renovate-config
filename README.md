@@ -29,8 +29,13 @@ for every repository in the organization.
 - Digest pinning proceeds immediately because it only freezes a mutable reference already in use.
 - `osvVulnerabilityAlerts: true` enables OSV.dev in addition to GitHub Security Advisories.
 - Security updates bypass the seven-day delay. The `vulnerabilityAlerts` block opens vulnerability PRs immediately.
-- Go toolchain and official `golang.org/x/*` updates bypass the delay. Other Go module dependencies keep the standard
-  seven-day delay.
+- Go version updates, such as the `toolchain` directive in `go.mod`, and official `golang.org/x/*` updates bypass the
+  delay. An up-to-date toolchain builds Go security fixes into the compiled binaries, which matters most for services.
+  Other Go module dependencies keep the standard seven-day delay.
+- The `go` directive in `go.mod` is raised only to a Go release that is at least three years (1095 days) old. The
+  directive sets the oldest Go that can build the module, and three years is the typical backward-compatibility
+  contract, so a library stays usable by consumers that have not upgraded Go yet. Renovate proposes the newest release
+  past that age and never lowers the directive; `go mod tidy` still raises it when a dependency requires a newer Go.
 - Groups all `actions/*` GitHub Actions updates into a single PR titled `actions org`.
 - Temporarily disables Renovate updates for the SHA-pinned `IEvangelist/profanity-filter` Action only when Renovate
   extracts the broken `13.4.6` or `v13.4.6` value from its four-component version comment. Other versions remain
@@ -70,8 +75,9 @@ a team-specific preset:
 - `base` applies an explicit best-practices baseline, weekly schedule, dependency label, and semantic commit settings.
 - `github-actions` groups third-party and Netcracker actions separately, with major updates in separate groups.
 - `go` groups Kubernetes and OpenShift, OpenTelemetry, Prometheus, and Go toolchain updates. Toolchain updates include
-  `go.mod` directives, explicit GitHub Actions Go versions, and official `golang` builder images. The preset does not
-  group unrelated dependencies or the `actions/setup-go` action version. For explicit builder tags such as
+  the `toolchain` directive in `go.mod`, explicit GitHub Actions Go versions, and official `golang` builder images. The
+  `go` directive in `go.mod` gets its own `Go directive` group, so its update never holds back a toolchain update. The
+  preset does not group unrelated dependencies or the `actions/setup-go` action version. For explicit builder tags such as
   `1.26.5-alpine3.24`, it updates the Go and Alpine 3 versions together while retaining the explicit Alpine version.
   Generic Alpine tags and other image variants keep Renovate's default Docker versioning behavior.
 - `go-catch-all` groups minor and patch updates for Go modules not covered by the `go` or `netcracker-dependencies`

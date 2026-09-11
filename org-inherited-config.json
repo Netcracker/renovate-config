@@ -69,9 +69,17 @@
       "minimumReleaseAge": "0 days"
     },
     {
-      "description": ["Skip the release-age delay for Go toolchain updates (go and toolchain directives)"],
+      "description": ["Skip the release-age delay for Go toolchain updates, so compiled binaries get Go security fixes as soon as they ship"],
       "matchDatasources": ["golang-version"],
       "minimumReleaseAge": "0 days"
+    },
+    {
+      "description": ["Raise the go directive in go.mod only to Go releases at least three years old, the usual backward-compatibility window, so consumers on older Go can still build the module; keep after the Go toolchain rule"],
+      "matchManagers": ["gomod"],
+      "matchDepNames": ["go"],
+      "matchDepTypes": ["golang"],
+      "rangeStrategy": "bump",
+      "minimumReleaseAge": "1095 days"
     },
     {
       "description": ["Skip the release-age delay for official golang.org/x library updates"],
