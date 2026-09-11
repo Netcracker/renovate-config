@@ -187,13 +187,14 @@ function assertGoPolicy(config) {
     'Group OpenTelemetry Go modules',
     'Group Prometheus Go modules',
     'Group Go toolchain versions',
+    'Keep the go directive in go.mod out of the Go toolchain group',
     'Group explicit GitHub Actions Go versions with Go toolchain updates',
     'Group official Go builder images with Go toolchain updates',
     'Update explicit Go and Alpine builder versions together',
   ]) {
     findRule(config, description);
   }
-  assert.equal(config.packageRules.length, 7, 'go.json must not group unrelated Go dependencies');
+  assert.equal(config.packageRules.length, 8, 'go.json must not group unrelated Go dependencies');
   const kubernetes = findRule(config, 'Group Kubernetes Go modules');
   assert.deepEqual(kubernetes.matchPackageNames, [
     'k8s.io/**',
@@ -206,15 +207,21 @@ function assertGoPolicy(config) {
     'github.com/open-telemetry/**',
   ]);
 
-  const toolchain = findRule(config, 'Group Go toolchain versions');
+  const goModGoVersion = { manager: 'gomod', datasource: 'golang-version', depName: 'go' };
   assert.equal(
-    ruleMatchesDependency(toolchain, {
-      manager: 'gomod',
-      datasource: 'golang-version',
-      depName: 'go',
-    }),
-    true,
-    'go.mod Go versions must join the Go toolchain group'
+    applyPackageRules({ ...goModGoVersion, depType: 'toolchain' }, config.packageRules).groupName,
+    'Go toolchain',
+    'The go.mod toolchain directive must join the Go toolchain group'
+  );
+  assert.equal(
+    applyPackageRules({ ...goModGoVersion, depType: 'golang' }, config.packageRules).groupName,
+    'Go directive',
+    'The go.mod go directive must stay out of the Go toolchain group'
+  );
+  assert.equal(
+    applyPackageRules({ manager: 'mise', datasource: 'golang-version', depName: 'go' }, config.packageRules).groupName,
+    'Go toolchain',
+    'Go versions outside go.mod must join the Go toolchain group'
   );
 
   const setupGoVersion = findRule(config, 'Group explicit GitHub Actions Go versions with Go toolchain updates');
@@ -633,6 +640,30 @@ function assertOrgInheritedPolicy(config) {
       `${dependency.datasource} ${dependency.updateType} updates must retain the timestamp-required default`
     );
   }
+
+  const goDirective = { manager: 'gomod', datasource: 'golang-version', depName: 'go', depType: 'golang' };
+  const goDirectiveResult = applyPackageRules(goDirective, config.packageRules);
+  assert.equal(
+    goDirectiveResult.minimumReleaseAge,
+    '1095 days',
+    'The go directive must move only to Go releases at least three years old'
+  );
+  assert.equal(goDirectiveResult.rangeStrategy, 'bump', 'The go directive must be bumped, not left as a range');
+
+  const toolchainDirective = applyPackageRules({ ...goDirective, depType: 'toolchain' }, config.packageRules);
+  assert.equal(
+    toolchainDirective.minimumReleaseAge,
+    '0 days',
+    'The toolchain directive must update without the release-age delay'
+  );
+  assert.equal(toolchainDirective.rangeStrategy, undefined, 'The toolchain directive must keep the default strategy');
+
+  const miseGoVersion = applyPackageRules(
+    { manager: 'mise', datasource: 'golang-version', depName: 'go' },
+    config.packageRules
+  );
+  assert.equal(miseGoVersion.minimumReleaseAge, '0 days', 'Go versions outside go.mod must update without the delay');
+  assert.equal(miseGoVersion.rangeStrategy, undefined, 'Go versions outside go.mod must keep the default strategy');
 }
 
 function assertAnnotatedVersions(config) {
