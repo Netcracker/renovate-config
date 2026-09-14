@@ -87,10 +87,11 @@ a team-specific preset:
   `go` directive in `go.mod` gets its own `Go directive` group, so its update never holds back a toolchain update. The
   preset does not group unrelated dependencies or the `actions/setup-go` action version. For explicit builder tags such as
   `1.26.5-alpine3.24`, it updates the Go and Alpine 3 versions together while retaining the explicit Alpine version.
-  Generic Alpine tags and other image variants keep Renovate's default Docker versioning behavior.
+  Generic Alpine tags and other image variants keep Renovate's default Docker versioning behavior. The preset also runs
+  `go mod tidy` after Go module updates.
 - `go-catch-all` groups minor and patch updates for Go modules not covered by the `go` or `netcracker-dependencies`
   presets. Major updates remain separate.
-- `go-tidy` runs `go mod tidy` after Go module updates.
+- `go-tidy` runs `go mod tidy` after Go module updates for repositories that do not use the `go` preset.
 - `maven-groupid` groups Maven updates by `groupId`. Maven vulnerability updates use the same grouping, while
   vulnerability updates from other ecosystems remain separate by datasource and dependency.
 - `netcracker-dependencies` groups internal dependencies by ecosystem and removes their release-age delay.
@@ -100,8 +101,9 @@ a team-specific preset:
 - `graylog-plugins` updates GitHub release URLs for Graylog plugin JARs in `plugins.list`.
 - `apm` updates APM package references in `apm.yml`.
 
-The `go-tidy` preset is separate because `gomodTidy` can make changes to `go.mod` and `go.sum` that are unrelated to
-the dependency Renovate is updating. Enable it only when those broader module-file changes are acceptable.
+The `go` preset includes `go-tidy` to keep dependencies imported behind build tags in `go.sum`. The first Renovate Go
+update after enabling the preset can also remove stale checksums or unused indirect requirements. Review that cleanup
+with the dependency update.
 
 The `go-catch-all` preset is separate because grouping unrelated Go modules trades smaller PR volume for a larger
 validation scope. Enable it only when the repository wants one PR for unrelated minor and patch updates:
@@ -161,8 +163,6 @@ For example, a Go repository that uses annotated tool versions can compose these
   ]
 }
 ```
-
-Add `"github>Netcracker/renovate-config:go-tidy"` only as an explicit repository decision.
 
 Keep `annotated-versions` after `base` in the `extends` list. The `base` preset enables digest pinning for Docker dependencies. The `annotated-versions` preset disables it only for version-only Docker annotations because those fields have nowhere to store a digest.
 
