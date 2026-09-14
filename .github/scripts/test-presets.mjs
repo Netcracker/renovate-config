@@ -181,7 +181,7 @@ function assertGitHubActionsPolicy(config) {
 }
 
 function assertGoPolicy(config) {
-  assert.equal(JSON.stringify(config).includes('gomodTidy'), false, 'go.json must not enable gomodTidy');
+  assert.deepEqual(config.extends, ['./go-tidy'], 'go.json must enable go-tidy by default');
   for (const description of [
     'Group Kubernetes Go modules',
     'Group OpenTelemetry Go modules',

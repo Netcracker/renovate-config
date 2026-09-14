@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": ["Run go mod tidy after Go module updates when a repository opts in"],
+  "description": ["Run go mod tidy after Go module updates"],
   "packageRules": [
     {
       "description": ["Run go mod tidy after Go module updates"],
