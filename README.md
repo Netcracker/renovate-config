@@ -29,9 +29,17 @@ for every repository in the organization.
 - Digest pinning proceeds immediately because it only freezes a mutable reference already in use.
 - `osvVulnerabilityAlerts: true` enables OSV.dev in addition to GitHub Security Advisories.
 - Security updates bypass the seven-day delay. The `vulnerabilityAlerts` block opens vulnerability PRs immediately.
-- Go version updates, such as the `toolchain` directive in `go.mod`, and official `golang.org/x/*` updates bypass the
-  delay. An up-to-date toolchain builds Go security fixes into the compiled binaries, which matters most for services.
-  Other Go module dependencies keep the standard seven-day delay.
+- Go patch updates, such as `1.26.4` to `1.26.8` in the `toolchain` directive in `go.mod`, and official
+  `golang.org/x/*` updates bypass the delay. An up-to-date toolchain builds Go security fixes into the compiled
+  binaries, which matters most for services. Other Go module dependencies keep the standard seven-day delay.
+- Go minor updates, such as `1.26` to `1.27` in the `toolchain` directive or in another Go version from the
+  `golang-version` datasource, wait 90 days. A linter built with an older Go cannot type-check the standard library of
+  the new release: golangci-lint 2.12.2 in super-linter 8.7.0 is built with Go 1.26 and fails on `toolchain go1.27.1`
+  with `the Go language version (go1.26) used to build golangci-lint is lower than the targeted Go version (1.27.1)`. Go
+  ships security fixes for the previous minor release too, so the delay leaves the binaries patched. Until then,
+  Renovate proposes the newest patch release of the current minor release. A module more than one minor release behind
+  moves to the newest release that is 90 days old, and gets the later patch releases on the next run. `golang` builder
+  images and explicit GitHub Actions Go versions keep the standard seven-day delay.
 - The `go` directive in `go.mod` is raised only to a Go release that is at least three years (1095 days) old. The
   directive sets the oldest Go that can build the module, and three years is the typical backward-compatibility
   contract, so a library stays usable by consumers that have not upgraded Go yet. Renovate proposes the newest release
