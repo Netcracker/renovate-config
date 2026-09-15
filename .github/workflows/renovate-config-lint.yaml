@@ -57,7 +57,7 @@ jobs:
           trap 'rm -rf "$consumer_dir"; rm -f "$log_file"' EXIT
           printf '{"extends":["github>%s:go#%s"]}\n' "$PRESET_REPOSITORY" "$PRESET_REF" \
             > "$consumer_dir/renovate.json"
-          docker run --rm \
+          docker run --rm --user 0 \
             -e GITHUB_COM_TOKEN \
             -e LOG_FORMAT=json \
             -v "$consumer_dir":/work -w /work \
