@@ -181,7 +181,11 @@ function assertGitHubActionsPolicy(config) {
 }
 
 function assertGoPolicy(config) {
-  assert.deepEqual(config.extends, ['./go-tidy'], 'go.json must enable go-tidy by default');
+  assert.deepEqual(
+    config.extends,
+    ['github>Netcracker/renovate-config:go-tidy'],
+    'go.json must enable go-tidy on the minimum supported Renovate version'
+  );
   for (const description of [
     'Group Kubernetes Go modules',
     'Group OpenTelemetry Go modules',
