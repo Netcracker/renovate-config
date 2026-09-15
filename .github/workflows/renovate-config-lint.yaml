@@ -45,6 +45,28 @@ jobs:
           docker run --rm -v "$PWD":/work -w /work renovate/renovate:latest \
             renovate-config-validator --strict --no-global renovate.json
 
+      - name: Resolve Go preset with minimum Renovate version
+        env:
+          GITHUB_COM_TOKEN: ${{ github.token }}
+          PRESET_REF: ${{ github.event.pull_request.head.sha || github.sha }}
+          PRESET_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        run: |
+          set -euo pipefail
+          consumer_dir="$(mktemp -d)"
+          log_file="$(mktemp)"
+          trap 'rm -rf "$consumer_dir"; rm -f "$log_file"' EXIT
+          printf '{"extends":["github>%s:go#%s"]}\n' "$PRESET_REPOSITORY" "$PRESET_REF" \
+            > "$consumer_dir/renovate.json"
+          docker run --rm \
+            -e GITHUB_COM_TOKEN \
+            -e LOG_FORMAT=json \
+            -v "$consumer_dir":/work -w /work \
+            renovate/renovate:43.288.0@sha256:3b72fc4274c56f65f53dcd4dcbed3143289358e0a2d96f7af215e6cf1923e5f6 \
+            renovate --platform=local --dry-run=extract 2>&1 | tee "$log_file"
+          if grep -Fq '"msg":"Repository has invalid config"' "$log_file"; then
+            exit 1
+          fi
+
       - name: Validate capability preset behavior
         run: node .github/scripts/test-presets.mjs
 
