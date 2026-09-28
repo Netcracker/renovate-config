@@ -62,7 +62,8 @@ function ruleMatchesDependency(rule, dependency) {
   ].every(([matcher, value]) => !rule[matcher] || matchesStringPatterns(rule[matcher], value));
   const currentValueMatches =
     !rule.matchCurrentValue || matchesStringPatterns([rule.matchCurrentValue], dependency.currentValue);
-  return arrayMatchersMatch && currentValueMatches;
+  const newValueMatches = !rule.matchNewValue || matchesStringPatterns([rule.matchNewValue], dependency.newValue);
+  return arrayMatchersMatch && currentValueMatches && newValueMatches;
 }
 
 function applyPackageRules(dependency, rules) {
@@ -194,11 +195,10 @@ function assertGoPolicy(config) {
     'Keep the go directive in go.mod out of the Go toolchain group',
     'Group explicit GitHub Actions Go versions with Go toolchain updates',
     'Group official Go builder images with Go toolchain updates',
-    'Update explicit Go and Alpine builder versions together',
   ]) {
     findRule(config, description);
   }
-  assert.equal(config.packageRules.length, 8, 'go.json must not group unrelated Go dependencies');
+  assert.equal(config.packageRules.length, 7, 'go.json must not group unrelated Go dependencies');
   const kubernetes = findRule(config, 'Group Kubernetes Go modules');
   assert.deepEqual(kubernetes.matchPackageNames, [
     'k8s.io/**',
@@ -269,51 +269,6 @@ function assertGoPolicy(config) {
     'Unrelated Docker images must stay outside the Go toolchain group'
   );
 
-  const explicitAlpineBuilder = findRule(config, 'Update explicit Go and Alpine builder versions together');
-  assert.equal(
-    explicitAlpineBuilder.versioning,
-    'regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-alpine3\\.(?<build>\\d+)$'
-  );
-  for (const packageName of [
-    'golang',
-    'library/golang',
-    'docker.io/library/golang',
-    'index.docker.io/library/golang',
-    'registry-1.docker.io/library/golang',
-  ]) {
-    assert.equal(
-      ruleMatchesDependency(explicitAlpineBuilder, {
-        manager: 'dockerfile',
-        datasource: 'docker',
-        packageName,
-        currentValue: '1.26.4-alpine3.22',
-      }),
-      true,
-      `The explicit ${packageName} Alpine version must be eligible for synchronized updates`
-    );
-  }
-  for (const currentValue of ['1.26.6-alpine', '1.26.6-bookworm', '1.26.6-alpine4.0']) {
-    assert.equal(
-      ruleMatchesDependency(explicitAlpineBuilder, {
-        manager: 'dockerfile',
-        datasource: 'docker',
-        packageName: 'golang',
-        currentValue,
-      }),
-      false,
-      `${currentValue} must retain the default Docker versioning policy`
-    );
-  }
-  assert.equal(
-    ruleMatchesDependency(explicitAlpineBuilder, {
-      manager: 'dockerfile',
-      datasource: 'docker',
-      packageName: 'alpine',
-      currentValue: '3.22',
-    }),
-    false,
-    'The rule must not change unrelated Docker images'
-  );
 }
 
 function assertGoTidyPolicy(config) {
@@ -676,6 +631,125 @@ function assertOrgInheritedPolicy(config) {
         `A ${dependency.manager} Go ${updateType} update must wait until linters built with an older Go catch up`
       );
     }
+  }
+}
+
+// Mirrors RegExpVersioningApi._parse in renovatebot/renovate lib/modules/versioning/regex/index.ts: a missing
+// major, minor, or patch counts as 0, and build and revision extend the release only when present.
+function parseRegexVersion(versioning, version) {
+  const groups = new RegExp(versioning.slice('regex:'.length)).exec(version)?.groups;
+  if (!groups) {
+    return null;
+  }
+  const release = [groups.major, groups.minor, groups.patch].map((part) => (part === undefined ? 0 : Number(part)));
+  if (groups.build) {
+    release.push(Number(groups.build));
+    if (groups.revision) {
+      release.push(Number(groups.revision));
+    }
+  }
+  return { release, compatibility: groups.compatibility };
+}
+
+function compareReleases(left, right) {
+  for (let i = 0; i < Math.max(left.length, right.length); i++) {
+    const difference = (left[i] ?? 0) - (right[i] ?? 0);
+    if (difference !== 0) {
+      return difference;
+    }
+  }
+  return 0;
+}
+
+// Picks the tag Renovate would propose among the published ones: a tag the versioning parses, with the same
+// compatibility suffix as the current tag, and the highest release.
+function newestCompatibleTag(config, currentValue, publishedTags) {
+  const { versioning } = applyPackageRules(
+    { manager: 'dockerfile', datasource: 'docker', packageName: 'nginx', currentValue },
+    config.packageRules
+  );
+  assert.match(versioning ?? '', /^regex:/, `${currentValue} must get regex versioning`);
+  const current = parseRegexVersion(versioning, currentValue);
+  return publishedTags
+    .map((tag) => ({ tag, version: parseRegexVersion(versioning, tag) }))
+    .filter(({ version }) => version && version.compatibility === current.compatibility)
+    .reduce((best, candidate) => (compareReleases(candidate.version.release, best.version.release) > 0 ? candidate : best), {
+      tag: currentValue,
+      version: current,
+    }).tag;
+}
+
+function assertAlpineReleaseVersioning(config) {
+  // Tags published for nginx as of September 2026, plus the variants that must never be proposed across.
+  const nginxTags = [
+    '1.26.3-alpine3.20',
+    '1.27.3-alpine3.20',
+    '1.27.3-alpine3.20-slim',
+    '1.31-alpine3.24',
+    '1.31.6-alpine3.24',
+    '1.31.6-alpine3.24-slim',
+    '1.31.6-alpine',
+    '1-alpine3.24',
+    'mainline-alpine3.24',
+  ];
+  for (const [currentValue, publishedTags, expected, reason] of [
+    ['1.27.3-alpine3.20', nginxTags, '1.31.6-alpine3.24', 'A newer release on a newer Alpine must be proposed'],
+    ['1.27.3-alpine3.20', ['1.27.3-alpine3.21'], '1.27.3-alpine3.21', 'A newer Alpine alone must be proposed'],
+    ['1.31.6-alpine3.24', ['1.31.6-alpine4.0'], '1.31.6-alpine4.0', 'Alpine 4 must outrank Alpine 3.24'],
+    ['1.27.3-alpine3.20-slim', nginxTags, '1.31.6-alpine3.24-slim', 'The -slim variant must stay -slim'],
+    ['1.27-alpine3.20', nginxTags, '1.31-alpine3.24', 'A two-component tag must stay two-component'],
+    ['1-alpine3.20', nginxTags, '1-alpine3.24', 'A one-component tag must stay one-component'],
+  ]) {
+    assert.equal(newestCompatibleTag(config, currentValue, publishedTags), expected, `${reason}: ${currentValue}`);
+  }
+
+  for (const currentValue of ['1.31.6-alpine', '1.31.6-bookworm', '3.24.1', 'mainline-alpine3.24', '1.31.6-alpine3.24rc1']) {
+    assert.equal(
+      applyPackageRules({ manager: 'dockerfile', datasource: 'docker', packageName: 'nginx', currentValue }, config.packageRules)
+        .versioning,
+      undefined,
+      `${currentValue} must keep Renovate's default Docker versioning`
+    );
+  }
+  // A copy of workarounds:nodeDockerVersioning, which config:best-practices applies before the inherited rules. Its
+  // versionCompatibility would cut 24-alpine3.21 down to 24 before the regex versioning parses it.
+  const nodeDockerVersioning = {
+    matchDatasources: ['docker'],
+    matchPackageNames: ['/(?:^|/)node$/'],
+    versionCompatibility: '^(?<version>[^-]+)(?<compatibility>-.*)?$',
+    versioning: 'node',
+  };
+  assert.equal(
+    applyPackageRules(
+      { manager: 'dockerfile', datasource: 'docker', packageName: 'node', currentValue: '24-alpine3.21' },
+      [nodeDockerVersioning, ...config.packageRules]
+    ).versionCompatibility,
+    null,
+    'The Alpine rules must clear the versionCompatibility that workarounds:nodeDockerVersioning sets for node'
+  );
+  assert.equal(
+    applyPackageRules(
+      { manager: 'custom.regex', datasource: 'github-releases', packageName: 'example/tool', currentValue: '1.2.3-alpine3.20' },
+      config.packageRules
+    ).versioning,
+    undefined,
+    'A non-Docker dependency with an Alpine-like version must keep its versioning'
+  );
+}
+
+function assertAutomergePolicy(config) {
+  const dockerUpdate = (currentValue, newValue) =>
+    applyPackageRules(
+      { manager: 'dockerfile', datasource: 'docker', packageName: 'nginx', updateType: 'patch', currentValue, newValue },
+      config.packageRules
+    ).automerge;
+  for (const [currentValue, newValue, expected, reason] of [
+    ['1.31.6-alpine3.24', '1.31.6-alpine4.0', false, 'A move to Alpine 4 must wait for review'],
+    ['1.31.6-alpine3.24-slim', '1.31.6-alpine4.0-slim', false, 'A move to Alpine 4 must wait for review for a variant too'],
+    ['1.27.3-alpine3.20', '1.27.3-alpine3.21', true, 'A move within Alpine 3 must be automerged'],
+    ['1.31.5', '1.31.6', true, 'A patch update without Alpine in the tag must be automerged'],
+  ]) {
+    assert.equal(dockerUpdate(currentValue, newValue), expected, `${reason}: ${currentValue} -> ${newValue}`);
   }
 }
 
@@ -1147,7 +1221,9 @@ function assertGraylogPlugins(config) {
 
 const configs = Object.fromEntries(presetNames.map((name) => [name, readJson(`${name}.json`)]));
 assertRepositoryPolicy(readJson('renovate.json'));
-assertOrgInheritedPolicy(readJson('org-inherited-config.json'));
+const orgInherited = readJson('org-inherited-config.json');
+assertOrgInheritedPolicy(orgInherited);
+assertAlpineReleaseVersioning(orgInherited);
 assertBasePolicy(configs.base);
 assertGitHubActionsPolicy(configs['github-actions']);
 assertGoPolicy(configs.go);
@@ -1161,5 +1237,6 @@ assertAlpineRepologySync(configs['annotated-versions']);
 assertGrafanaPlugins(configs['grafana-plugins']);
 assertGraylogPlugins(configs['graylog-plugins']);
 assertNoAutomerge(configs);
+assertAutomergePolicy(readJson('automerge.json'));
 
 console.log(`Validated ${presetNames.length} capability presets and their extraction fixtures.`);

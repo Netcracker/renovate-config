@@ -45,6 +45,22 @@ for every repository in the organization.
   contract, so a library stays usable by consumers that have not upgraded Go yet. Renovate proposes the newest release
   past that age and never lowers the directive; `go mod tidy` still raises it when a dependency requires a newer Go.
 - Groups all `actions/*` GitHub Actions updates into a single PR titled `actions org`.
+- Docker tags that name an Alpine release, such as `1.27.3-alpine3.20`, `1.27-alpine3.20`, or `24-alpine3.21`, compare
+  that release as part of the version. By default Renovate treats `-alpine3.20` as a compatibility suffix, proposes only
+  tags that end in the same suffix, and stops proposing updates once the image is published only for a newer Alpine;
+  [Renovate issue #27012](https://github.com/renovatebot/renovate/issues/27012) tracks this. With the rule,
+  `nginx:1.27.3-alpine3.20` updates to `1.31.6-alpine3.24`, and a tag on the same release and a newer Alpine, including
+  Alpine 4, is an update too. The number of version components stays the same, so `1.27-alpine3.20` updates to
+  `1.31-alpine3.24`, and a lowercase variant suffix stays, so `1.27.3-alpine3.20-slim` updates to
+  `1.31.6-alpine3.24-slim`. Tags such as `1.31.6-alpine` keep Renovate's default Docker versioning.
+  - A change of the Alpine release alone is a `patch` update, because Renovate derives the update type from the first
+    three version components. The `automerge` preset merges a move within Alpine 3 and leaves a move to Alpine 4 for
+    review.
+  - For `node`, the rule also clears the `versionCompatibility` that `workarounds:nodeDockerVersioning` sets, which would
+    otherwise hide the Alpine release from the comparison. `node` versioning no longer applies to such tags, so Renovate
+    proposes a new major line before it reaches LTS. A repository whose own `renovate.json` extends
+    `config:recommended` or `config:best-practices`, directly or through the `base` preset, applies the workaround again
+    after this rule, and its `node` tags with an Alpine release stay on the Alpine release they have.
 - Temporarily disables Renovate updates for the SHA-pinned `IEvangelist/profanity-filter` Action only when Renovate
   extracts the broken `13.4.6` or `v13.4.6` value from its four-component version comment. Other versions remain
   enabled. Remove this exception after the exact published tag or alias resolves successfully and the shared workflow
@@ -85,10 +101,9 @@ a team-specific preset:
 - `go` groups Kubernetes and OpenShift, OpenTelemetry, Prometheus, and Go toolchain updates. Toolchain updates include
   the `toolchain` directive in `go.mod`, explicit GitHub Actions Go versions, and official `golang` builder images. The
   `go` directive in `go.mod` gets its own `Go directive` group, so its update never holds back a toolchain update. The
-  preset does not group unrelated dependencies or the `actions/setup-go` action version. For explicit builder tags such as
-  `1.26.5-alpine3.24`, it updates the Go and Alpine 3 versions together while retaining the explicit Alpine version.
-  Generic Alpine tags and other image variants keep Renovate's default Docker versioning behavior. The preset also runs
-  `go mod tidy` after Go module updates.
+  preset does not group unrelated dependencies or the `actions/setup-go` action version. The preset also runs
+  `go mod tidy` after Go module updates. Builder tags such as `1.26.5-alpine3.24` move to a newer Alpine through the
+  inherited config.
 - `go-catch-all` groups minor and patch updates for Go modules not covered by the `go` or `netcracker-dependencies`
   presets. Major updates remain separate.
 - `go-tidy` runs `go mod tidy` after Go module updates for repositories that do not use the `go` preset.
