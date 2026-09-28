@@ -1,8 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": ["Apply the explicit baseline for repository Renovate configuration"],
+  "description": ["Apply the weekly schedule, dependency label, and semantic commit settings; the inherited config already extends config:best-practices"],
   "extends": [
-    "config:best-practices",
     "schedule:weekly"
   ],
   "labels": ["dependencies"],
