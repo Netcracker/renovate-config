@@ -56,7 +56,8 @@ for every repository in the organization.
   - A change of the Alpine release alone is a `patch` update, because Renovate derives the update type from the first
     three version components. The `automerge` preset merges a move within Alpine 3 and leaves a move to Alpine 4 for
     review.
-  - For `node`, the rule also clears the `versionCompatibility` that `workarounds:nodeDockerVersioning` sets, which would
+  - For `node`, the rule also clears the `versionCompatibility` that `workarounds:nodeDockerVersioning` sets, which
+would
     otherwise hide the Alpine release from the comparison. `node` versioning no longer applies to such tags, so Renovate
     proposes a new major line before it reaches LTS. A repository whose own `renovate.json` extends
     `config:recommended` or `config:best-practices`, directly or through the `base` preset, applies the workaround again
@@ -110,9 +111,12 @@ a team-specific preset:
 - `maven-groupid` groups Maven updates by `groupId`. Maven vulnerability updates use the same grouping, while
   vulnerability updates from other ecosystems remain separate by datasource and dependency.
 - `netcracker-dependencies` groups internal dependencies by ecosystem and removes their release-age delay.
-- `annotated-versions` updates annotated Docker, YAML, template, Makefile, and environment values and `go install` commands. Version-only Docker annotations use tags without adding digests. Digest-pinned images in Helm print templates keep their tags and digests aligned.
+- `annotated-versions` updates annotated Docker, YAML, template, Makefile, and environment values and `go install`
+  commands. Version-only Docker annotations use tags without adding digests. Digest-pinned images in Helm print
+  templates keep their tags and digests aligned.
 - `test-pipelines` keeps reusable test pipeline workflow references and `pipeline_branch` inputs aligned.
-- `grafana-plugins` updates Grafana plugin ID and version pairs in `plugins.list`, including plugins whose Grafana API response contains only one release.
+- `grafana-plugins` updates Grafana plugin ID and version pairs in `plugins.list`, including plugins whose Grafana API
+  response contains only one release.
 - `graylog-plugins` updates GitHub release URLs for Graylog plugin JARs in `plugins.list`.
 - `apm` updates APM package references in `apm.yml`.
 
@@ -179,9 +183,12 @@ For example, a Go repository that uses annotated tool versions can compose these
 }
 ```
 
-Keep `annotated-versions` after `base` in the `extends` list. The `base` preset enables digest pinning for Docker dependencies. The `annotated-versions` preset disables it only for version-only Docker annotations because those fields have nowhere to store a digest.
+Keep `annotated-versions` after `base` in the `extends` list. The `base` preset enables digest pinning for Docker
+dependencies. The `annotated-versions` preset disables it only for version-only Docker annotations because those fields
+have nowhere to store a digest.
 
-Dependencies extracted by Renovate's native `dockerfile` and `helm-values` managers, along with custom managers that extract a digest, retain the inherited digest policy.
+Dependencies extracted by Renovate's native `dockerfile` and `helm-values` managers, along with custom managers that
+extract a digest, retain the inherited digest policy.
 
 ### Pin annotated Helm image defaults by digest
 
@@ -192,9 +199,12 @@ Add a digest to a full image reference in a Helm print template to opt in to dig
 {{- print "docker.io/graylog/graylog:5.2.12@sha256:0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef" -}}
 ```
 
-Renovate extracts both the tag and digest and updates them together. A template that contains only a tag continues to receive tag-only updates.
+Renovate extracts both the tag and digest and updates them together. A template that contains only a tag continues to
+receive tag-only updates.
 
-Seed the first valid digest manually. The preset requires an existing `@sha256:...` value instead of relying on initial digest insertion by a regex manager, which remains tracked in [renovatebot/renovate#10993](https://github.com/renovatebot/renovate/issues/10993).
+Seed the first valid digest manually. The preset requires an existing `@sha256:...` value instead of relying on initial
+digest insertion by a regex manager, which remains tracked in
+[renovatebot/renovate#10993](https://github.com/renovatebot/renovate/issues/10993).
 
 ## Update Alpine package annotations with the base image
 
@@ -226,9 +236,11 @@ FROM alpine:3.25.0
 ARG BUSYBOX_VERSION=1.37.0-r31
 ```
 
-The synchronization changes the Alpine image and the Repology repository. It does not change the pinned package version. Repology does not provide release timestamps, so Alpine Repology updates bypass the organization release-age delay.
+The synchronization changes the Alpine image and the Repology repository. It does not change the pinned package version.
+Repology does not provide release timestamps, so Alpine Repology updates bypass the organization release-age delay.
 
-Renovate does not try to add an image digest to the synchronization annotation because the annotation has no digest field. The Docker build verifies that the package version exists in the new Alpine release.
+Renovate does not try to add an image digest to the synchronization annotation because the annotation has no digest
+field. The Docker build verifies that the package version exists in the new Alpine release.
 
 Do not add `syncWith=alpine` to packages installed in derived images such as `golang:1.26-alpine3.24`. Their Alpine
 release is part of the derived image tag and may differ from the official Alpine image.
@@ -264,7 +276,8 @@ Enable the preset in the repository Renovate configuration:
 Add the release tag and package annotation after each pinned `pipeline_branch` commit:
 
 ```yaml
-pipeline_branch: 'ddc741b38bac5dc4834b8f6827c9f6d16abf0db8' # v1.14.1 renovate: depName=Netcracker/qubership-test-pipelines
+pipeline_branch: 'ddc741b38bac5dc4834b8f6827c9f6d16abf0db8' # v1.14.1 renovate:
+depName=Netcracker/qubership-test-pipelines
 ```
 
 ## `apm.json` preset
