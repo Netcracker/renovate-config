@@ -3,8 +3,8 @@ import fs from 'node:fs';
 const config = JSON.parse(fs.readFileSync('apm.json', 'utf8'));
 
 const apmPackageRule = config.packageRules.find((rule) => rule.matchDepTypes?.includes('apm'));
-const depsManager = config.customManagers.find(
-  (manager) => manager.description === 'Update APM dependencies pinned to version tags with #.'
+const depsBranchManager = config.customManagers.find(
+  (manager) => manager.description === 'Update APM dependencies pinned to a commit on a branch.'
 );
 const marketReleaseManager = config.customManagers.find(
   (manager) => manager.description === 'Update marketplace APM entries pinned to release tags.'
@@ -19,15 +19,15 @@ if (!apmPackageRule) {
 if (apmPackageRule.groupName !== 'apm packages') {
   throw new Error('APM package rule must group package updates');
 }
-if (apmPackageRule.pinDigests === true) {
-  throw new Error('APM package rule must not pin digests in dependencies; SHAs there belong in apm.lock');
+if (!apmPackageRule.matchDepTypes.includes('apm-dev')) {
+  throw new Error('APM package rule must also match apm-dev, the built-in manager\'s dependency type for devDependencies');
 }
 if (apmPackageRule.automerge !== false) {
   throw new Error('APM updates must stay under manual review (automerge: false)');
 }
 
 for (const [name, manager, datasource] of [
-  ['dependencies', depsManager, 'github-tags'],
+  ['dependency branch', depsBranchManager, 'git-refs'],
   ['marketplace release', marketReleaseManager, 'github-tags'],
   ['marketplace branch', marketBranchManager, 'git-refs'],
 ]) {
@@ -38,22 +38,18 @@ for (const [name, manager, datasource] of [
     throw new Error(`${name} APM manager must use the ${datasource} datasource, got ${manager.datasourceTemplate}`);
   }
 }
-for (const manager of [depsManager, marketReleaseManager]) {
-  if (manager.versioningTemplate !== 'semver') {
-    throw new Error(`Tag-tracking APM manager ${JSON.stringify(manager.description)} must use semver versioning`);
-  }
+if (marketReleaseManager.versioningTemplate !== 'semver') {
+  throw new Error('Marketplace release manager must use semver versioning');
 }
 
 function hasNamedDigest(manager) {
   return manager.matchStrings.some((matchString) => /\(\?<currentDigest>/.test(matchString));
 }
 
-// Dependencies (apm.lock covers them): apm.yml keeps no SHA, so the manager must not read or emit a digest.
-if (hasNamedDigest(depsManager)) {
-  throw new Error('Dependencies manager must not capture currentDigest; SHAs there live in apm.lock, not apm.yml');
-}
-if (depsManager.autoReplaceStringTemplate.includes('newDigest')) {
-  throw new Error('Dependencies manager must not write a digest back into apm.yml');
+// A dependency pinned to a commit on a branch keeps its SHA: in a published package's apm.yml that SHA is the only pin
+// its consumers receive, because the package repository's own apm.lock does not travel with the package.
+if (!hasNamedDigest(depsBranchManager)) {
+  throw new Error('Dependency branch manager must keep the SHA pin (currentDigest)');
 }
 
 // Marketplace (not covered by any lockfile): the SHA pin is the lock, so both managers keep and update the digest.
@@ -63,6 +59,32 @@ for (const manager of [marketReleaseManager, marketBranchManager]) {
   }
   if (manager.matchStrings.some((matchString) => matchString.includes('(?<depPrefix>'))) {
     throw new Error(`Marketplace manager ${JSON.stringify(manager.description)} must not capture unused depPrefix`);
+  }
+}
+
+// Renovate's built-in apm manager updates dependencies on a tag (#v1.2.0, #<sha>  # v1.2.0). It looks any other ref up
+// as a tag too, so for a branch pin it reports "Could not determine new digest"; the rule turns it off there and leaves
+// those pins to the branch manager.
+const builtinBranchRule = config.packageRules.find(
+  (rule) => rule.matchManagers?.includes('apm') && rule.enabled === false
+);
+if (!builtinBranchRule) {
+  throw new Error('A package rule must turn the built-in apm manager off for branch refs');
+}
+const negated = /^!\/(.*)\/$/.exec(builtinBranchRule.matchCurrentValue ?? '');
+if (!negated) {
+  throw new Error(`Built-in apm rule must match a negated regex, got ${JSON.stringify(builtinBranchRule.matchCurrentValue)}`);
+}
+const versionRef = new RegExp(negated[1]);
+for (const branch of ['main', 'develop', 'feat/agent-packages', 'vNext']) {
+  if (versionRef.test(branch)) {
+    throw new Error(`Built-in apm rule must turn the manager off for branch ${JSON.stringify(branch)}`);
+  }
+}
+// `v1.x` is a branch, but without a lookahead it cannot be told from a tag, so it stays with the built-in manager.
+for (const tag of ['v1.2.0', 'V1.2.0', 'v0.1.0-rc.1', '1.2.0', 'v1.x']) {
+  if (!versionRef.test(tag)) {
+    throw new Error(`Built-in apm rule must leave the manager on for tag ${JSON.stringify(tag)}`);
   }
 }
 
@@ -126,51 +148,92 @@ function replaceFirstMatch(manager, content, update) {
   return `${content.slice(0, match.index)}${replacement}${content.slice(match.index + match[0].length)}`;
 }
 
-function countMatches(manager, content) {
-  return [...content.matchAll(new RegExp(manager.matchStrings[0], 'g'))].length;
-}
-
 const oldDigest = '96f42e9a2a694632f3ef355ce45ad33c13906220';
 const newDigest = 'f7d7b53f2eb840645236cd46d60750db53f0ef6e';
 
-// --- Dependencies: a legacy digest pin collapses to a clean tag on the first bump. ---
-const legacyHashFixture = `dependencies:
+// Dependencies on a tag, which belong to the built-in apm manager.
+const tagPinFixture = `dependencies:
   apm:
     - Netcracker/qubership-ai-agent-telemetry/agent-packages/ai-agent-telemetry#${oldDigest}  # v0.1.0
-    - Netcracker/qubership-ai-packages/agent-packages/apm-authoring#main
 `;
-const bumpedHash = replaceFirstMatch(depsManager, legacyHashFixture, { newValue: 'v1.0.1' });
-if (!bumpedHash.includes('/ai-agent-telemetry#v1.0.1')) {
-  throw new Error(`Bumped dependency must become a clean tag, got:\n${bumpedHash}`);
-}
-if (/[0-9a-f]{40}/.test(bumpedHash) || bumpedHash.includes('  # ')) {
-  throw new Error(`Bumped dependency must drop the digest and its comment, got:\n${bumpedHash}`);
-}
-if (countMatches(depsManager, legacyHashFixture) !== countMatches(depsManager, bumpedHash)) {
-  throw new Error('Bumping a dependency must preserve the dependency count');
-}
-
-const cleanHashFixture = `dependencies:
+const tagFixture = `dependencies:
   apm:
     - Netcracker/qubership-ai-agent-telemetry/agent-packages/ai-agent-telemetry#v0.1.0
 `;
-const bumpedClean = replaceFirstMatch(depsManager, cleanHashFixture, { newValue: 'v1.0.1' });
-if (!bumpedClean.includes('/ai-agent-telemetry#v1.0.1') || /[0-9a-f]{40}/.test(bumpedClean)) {
-  throw new Error(`Clean dependency tag must bump without gaining a digest, got:\n${bumpedClean}`);
-}
 
-// A branch dependency is recognized but never regains a digest.
+// --- Dependency pinned to a commit on a branch: keep the SHA pin, update the digest, keep the branch comment. ---
 const branchDependencyFixture = `dependencies:
   apm:
-    - Netcracker/qubership-ai-packages/agent-packages/apm-authoring#${oldDigest}  # main
+    - Netcracker/qubership-core-lib-go/logging/agent-packages/logging-go-usage#${oldDigest}  # feat/agent-packages
 `;
-const branchDependencyMatch = firstMatch(depsManager, branchDependencyFixture);
-if (branchDependencyMatch?.groups.currentValue !== 'main') {
-  throw new Error(`Dependencies manager must read the branch name, got ${JSON.stringify(branchDependencyMatch?.groups.currentValue)}`);
+const branchDependencyMatch = firstMatch(depsBranchManager, branchDependencyFixture);
+if (
+  branchDependencyMatch?.groups.currentValue !== 'feat/agent-packages' ||
+  branchDependencyMatch.groups.currentDigest !== oldDigest
+) {
+  throw new Error(`Dependency branch manager captured ${JSON.stringify(branchDependencyMatch?.groups)}`);
 }
-const collapsedBranch = replaceDependency(depsManager, branchDependencyMatch, { newValue: 'main' });
-if (/[0-9a-f]{40}/.test(collapsedBranch) || collapsedBranch.includes('  # ')) {
-  throw new Error(`Collapsing a branch dependency must drop the digest, got: ${JSON.stringify(collapsedBranch)}`);
+const branchDependency = extractRuntimeDependency(depsBranchManager, branchDependencyMatch);
+if (branchDependency.packageName !== 'https://github.com/Netcracker/qubership-core-lib-go.git') {
+  throw new Error(`Dependency branch packageName was ${JSON.stringify(branchDependency.packageName)}`);
+}
+if (branchDependency.depName !== 'Netcracker/qubership-core-lib-go/logging/agent-packages/logging-go-usage') {
+  throw new Error(`Dependency branch depName was ${JSON.stringify(branchDependency.depName)}`);
+}
+const bumpedBranchDependency = replaceFirstMatch(depsBranchManager, branchDependencyFixture, { newDigest });
+if (!bumpedBranchDependency.includes(`/logging-go-usage#${newDigest}  # feat/agent-packages`)) {
+  throw new Error(`Dependency branch bump must update the digest and keep the branch, got:\n${bumpedBranchDependency}`);
+}
+
+// A pin on a whole repository, with no subdirectory, is a branch pin too.
+const wholeRepoMatch = firstMatch(depsBranchManager, `dependencies:
+  apm:
+    - Netcracker/qubership-workflow-hub#${oldDigest}  # main
+`);
+if (wholeRepoMatch?.groups.depName !== 'Netcracker/qubership-workflow-hub' || wholeRepoMatch.groups.currentValue !== 'main') {
+  throw new Error(`Dependency branch manager must capture a pin on a whole repository, got ${JSON.stringify(wholeRepoMatch?.groups)}`);
+}
+
+// A branch whose name starts with `v` and a letter is a branch, not a tag.
+const vBranchMatch = firstMatch(depsBranchManager, branchDependencyFixture.replace('# feat/agent-packages', '# vNext'));
+if (vBranchMatch?.groups.currentValue !== 'vNext') {
+  throw new Error(`Dependency branch manager must capture a v-prefixed branch, got ${JSON.stringify(vBranchMatch?.groups)}`);
+}
+
+// A comment on the next line belongs to that line, not to the SHA above it.
+for (const comment of ['# main', '# v1.2.0']) {
+  const splitFixture = `dependencies:
+  apm:
+    - Netcracker/qubership-ai-packages/agent-packages/apm-authoring#${newDigest}
+    ${comment}
+`;
+  if (firstMatch(depsBranchManager, splitFixture)) {
+    throw new Error(`Dependency branch manager must not join a SHA with the comment line after it (${comment})`);
+  }
+}
+
+for (const fixture of [tagPinFixture, tagFixture]) {
+  if (firstMatch(depsBranchManager, fixture)) {
+    throw new Error(`Dependency branch manager must not match a version tag:\n${fixture}`);
+  }
+}
+
+// A bare branch ref such as `#main` follows the branch at install time and holds no SHA to update.
+const bareBranchFixture = `dependencies:
+  apm:
+    - Netcracker/qubership-ai-packages/agent-packages/apm-authoring#main
+`;
+if (firstMatch(depsBranchManager, bareBranchFixture)) {
+  throw new Error('Dependency branch manager must not extract a bare branch ref');
+}
+
+// A bare SHA with no comment names no ref to follow, even one that starts with a letter.
+const bareDigestFixture = `dependencies:
+  apm:
+    - Netcracker/qubership-ai-packages/agent-packages/apm-authoring#${newDigest}
+`;
+if (firstMatch(depsBranchManager, bareDigestFixture)) {
+  throw new Error('Dependency branch manager must not extract a bare SHA');
 }
 
 // The invalid `@alias` shorthand (rejected by APM 0.26.0) must not be extracted by any manager.
