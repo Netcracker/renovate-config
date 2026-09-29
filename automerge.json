@@ -8,6 +8,13 @@
       "description": ["Automerge all non-major dependency updates"],
       "matchUpdateTypes": ["minor", "patch", "pin", "digest", "pinDigest"],
       "automerge": true
+    },
+    {
+      "description": ["Leave a move from Alpine 3 to a newer Alpine major for review; the Alpine rules in the inherited config classify it as a patch update"],
+      "matchDatasources": ["docker"],
+      "matchCurrentValue": "/-alpine3\\.\\d+(?:-[a-z]+)?$/",
+      "matchNewValue": "!/-alpine3\\.\\d+(?:-[a-z]+)?$/",
+      "automerge": false
     }
   ]
 }

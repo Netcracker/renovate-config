@@ -95,6 +95,27 @@
       "minimumReleaseAge": "0 days"
     },
     {
+      "description": ["Compare the Alpine release in X.Y.Z-alpineA.B Docker tags as part of the version, so a tag on a newer Alpine is an update rather than an incompatible suffix; a trailing variant such as -slim must match"],
+      "matchDatasources": ["docker"],
+      "matchCurrentValue": "/^\\d+\\.\\d+\\.\\d+-alpine\\d+\\.\\d+(?:-[a-z]+)?$/",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)-alpine(?<build>\\d+)\\.(?<revision>\\d+)(?<compatibility>-[a-z]+)?$",
+      "versionCompatibility": null
+    },
+    {
+      "description": ["Compare the Alpine release in X.Y-alpineA.B Docker tags as part of the version, and keep the two-component precision"],
+      "matchDatasources": ["docker"],
+      "matchCurrentValue": "/^\\d+\\.\\d+-alpine\\d+\\.\\d+(?:-[a-z]+)?$/",
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)-alpine(?<build>\\d+)\\.(?<revision>\\d+)(?<compatibility>-[a-z]+)?$",
+      "versionCompatibility": null
+    },
+    {
+      "description": ["Compare the Alpine release in X-alpineA.B Docker tags as part of the version, and keep the one-component precision"],
+      "matchDatasources": ["docker"],
+      "matchCurrentValue": "/^\\d+-alpine\\d+\\.\\d+(?:-[a-z]+)?$/",
+      "versioning": "regex:^(?<major>\\d+)-alpine(?<build>\\d+)\\.(?<revision>\\d+)(?<compatibility>-[a-z]+)?$",
+      "versionCompatibility": null
+    },
+    {
       "description": ["Do not delay pinning mutable references; keep last to override inherited release-age rules"],
       "matchUpdateTypes": ["pinDigest"],
       "minimumReleaseAge": null
