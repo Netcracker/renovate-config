@@ -97,7 +97,10 @@ opts into `"github>Netcracker/renovate-config"`. The automatic inheritance descr
 Capability presets are additive and opt-in. Compose only the capabilities that a repository needs instead of extending
 a team-specific preset:
 
-- `base` applies an explicit best-practices baseline, weekly schedule, dependency label, and semantic commit settings.
+- `base` applies the weekly schedule, dependency label, and semantic commit settings. It does not extend
+  `config:best-practices`: the inherited config already does, and extending it again from a repository applies the
+  built-in rules, such as `workarounds:nodeDockerVersioning`, after the organization rules and overrides them. For the
+  same reason, a repository does not need `config:recommended` or `config:best-practices` in its own `extends`.
 - `github-actions` groups third-party and Netcracker actions separately, with major updates in separate groups.
 - `go` groups Kubernetes and OpenShift, OpenTelemetry, Prometheus, and Go toolchain updates. Toolchain updates include
   the `toolchain` directive in `go.mod`, explicit GitHub Actions Go versions, and official `golang` builder images. The
@@ -183,9 +186,9 @@ For example, a Go repository that uses annotated tool versions can compose these
 }
 ```
 
-Keep `annotated-versions` after `base` in the `extends` list. The `base` preset enables digest pinning for Docker
-dependencies. The `annotated-versions` preset disables it only for version-only Docker annotations because those fields
-have nowhere to store a digest.
+The inherited config enables digest pinning for Docker dependencies. The `annotated-versions` preset disables it only
+for version-only Docker annotations because those fields have nowhere to store a digest. Keep `annotated-versions` after
+any preset in the `extends` list that enables digest pinning again, such as `config:best-practices`.
 
 Dependencies extracted by Renovate's native `dockerfile` and `helm-values` managers, along with custom managers that
 extract a digest, retain the inherited digest policy.

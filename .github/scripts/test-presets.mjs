@@ -146,7 +146,11 @@ function render(template, values) {
 }
 
 function assertBasePolicy(config) {
-  assert.deepEqual(config.extends, ['config:best-practices', 'schedule:weekly']);
+  assert.deepEqual(
+    config.extends,
+    ['schedule:weekly'],
+    'base.json must not extend config:recommended or config:best-practices again, which would apply the built-in rules after the inherited ones'
+  );
   assert.deepEqual(config.labels, ['dependencies']);
   assert.equal(config.semanticCommits, 'enabled');
   assert.equal(config.semanticCommitType, 'chore');
@@ -791,12 +795,12 @@ function assertAnnotatedVersions(config) {
   assert.equal(
     applyPackageRules(versionOnlyDockerAnnotation, [inheritedDigestPinning, ...config.packageRules]).pinDigests,
     false,
-    'annotated-versions must override the base Docker digest policy when it is extended after base'
+    'annotated-versions must override the inherited Docker digest policy'
   );
   assert.equal(
     applyPackageRules(versionOnlyDockerAnnotation, [...config.packageRules, inheritedDigestPinning]).pinDigests,
     true,
-    'A later base Docker digest policy must override annotated-versions'
+    'A Docker digest policy extended after annotated-versions must override it'
   );
 
   for (const testCase of [
