@@ -146,11 +146,14 @@ function render(template, values) {
 }
 
 function assertBasePolicy(config) {
-  assert.deepEqual(
+  assert.equal(
     config.extends,
-    ['schedule:weekly'],
+    undefined,
     'base.json must not extend config:recommended or config:best-practices again, which would apply the built-in rules after the inherited ones'
   );
+  assert.deepEqual(config.schedule, ['at any time'], 'base.json must not hold back PR creation to a weekly window');
+  assert.equal(config.prConcurrentLimit, 10, 'base.json must cap the number of open PRs');
+  assert.equal(config.prHourlyLimit, 5, 'base.json must spread a burst of new PRs over a few hours');
   assert.deepEqual(config.labels, ['dependencies']);
   assert.equal(config.semanticCommits, 'enabled');
   assert.equal(config.semanticCommitType, 'chore');

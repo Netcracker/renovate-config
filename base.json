@@ -1,9 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": ["Apply the weekly schedule, dependency label, and semantic commit settings; the inherited config already extends config:best-practices"],
-  "extends": [
-    "schedule:weekly"
-  ],
+  "description": ["Open update PRs at any time with at most ten open, and apply the dependency label and semantic commit settings; the inherited config already extends config:best-practices"],
+  "schedule": ["at any time"],
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 5,
   "labels": ["dependencies"],
   "semanticCommits": "enabled",
   "semanticCommitType": "chore",
