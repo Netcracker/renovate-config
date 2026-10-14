@@ -97,10 +97,19 @@ opts into `"github>Netcracker/renovate-config"`. The automatic inheritance descr
 Capability presets are additive and opt-in. Compose only the capabilities that a repository needs instead of extending
 a team-specific preset:
 
-- `base` applies the weekly schedule, dependency label, and semantic commit settings. It does not extend
+- `base` applies the PR limits, dependency label, and semantic commit settings. It does not extend
   `config:best-practices`: the inherited config already does, and extending it again from a repository applies the
   built-in rules, such as `workarounds:nodeDockerVersioning`, after the organization rules and overrides them. For the
   same reason, a repository does not need `config:recommended` or `config:best-practices` in its own `extends`.
+  - Renovate opens a PR at any time, as soon as the release passes the release-age delay, while fewer than ten PRs
+    (`prConcurrentLimit: 10`) are open. At most five new PRs open per hour (`prHourlyLimit: 5`), so after a pause or
+    on the first run the ten slots fill over two hours rather than at once. Security PRs open even when either limit is
+    reached.
+  - The limit bounds the review queue, and with automerge it also bounds the rebases: each merge to the base branch
+    rebases every open automerge PR. A repository with expensive CI can set a lower `prConcurrentLimit`.
+  - A dependency that releases several times a week updates its open PR rather than opening new ones. With automerge,
+    each of those releases can merge. To open PRs for such a dependency only once a week, add a package rule for it in
+    the repository with `"schedule": ["* 0-3 * * 1"]`, the Monday-morning window of `schedule:weekly`.
 - `github-actions` groups third-party and Netcracker actions separately, with major updates in separate groups.
 - `go` groups Kubernetes and OpenShift, OpenTelemetry, Prometheus, and Go toolchain updates. Toolchain updates include
   the `toolchain` directive in `go.mod`, explicit GitHub Actions Go versions, and official `golang` builder images. The
