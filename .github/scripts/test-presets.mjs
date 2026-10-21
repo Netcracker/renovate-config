@@ -175,8 +175,14 @@ function assertGitHubActionsPolicy(config) {
     '!index.docker.io/library/golang',
     '!registry-1.docker.io/library/golang',
   ];
-  assert.deepEqual(thirdParty.matchPackageNames, ['!Netcracker/**', '!netcracker/**']);
-  assert.deepEqual(majorThirdParty.matchPackageNames, ['!Netcracker/**', '!netcracker/**']);
+  const thirdPartyPackageNames = [
+    '!Netcracker/**',
+    '!netcracker/**',
+    '!renovate/renovate',
+    '!ghcr.io/renovatebot/renovate',
+  ];
+  assert.deepEqual(thirdParty.matchPackageNames, thirdPartyPackageNames);
+  assert.deepEqual(majorThirdParty.matchPackageNames, thirdPartyPackageNames);
   assert.deepEqual(thirdParty.matchDepNames, thirdPartyDepNames);
   assert.deepEqual(majorThirdParty.matchDepNames, thirdPartyDepNames);
   assert.deepEqual(netcracker.matchPackageNames, ['Netcracker/**', 'netcracker/**']);
@@ -744,6 +750,111 @@ function assertAlpineReleaseVersioning(config) {
   );
 }
 
+function assertRenovateImageBatching(orgInherited, automerge, githubActions) {
+  const image = { manager: 'dockerfile', datasource: 'docker', packageName: 'renovate/renovate' };
+  const imageUpdate = (dependency, rules = orgInherited.packageRules) =>
+    applyPackageRules({ ...image, ...dependency }, rules);
+
+  // The rule carries no matchManagers, so a Dockerfile, a workflow container and an annotation all reach it; and the
+  // pinDigest rule is last, so every update type goes through the whole list.
+  for (const packageName of ['renovate/renovate', 'ghcr.io/renovatebot/renovate']) {
+    for (const manager of ['dockerfile', 'github-actions', 'custom.regex']) {
+      for (const updateType of ['major', 'minor', 'patch', 'digest', 'pinDigest']) {
+        const update = imageUpdate({ manager, packageName, updateType });
+        const where = `${packageName} ${manager} ${updateType}`;
+        assert.deepEqual(update.schedule, ['* * 1 * *'], `${where} updates must open a branch on the first`);
+        assert.deepEqual(update.automergeSchedule, ['* * 2-31 * *'], `${where} updates must merge from the second`);
+        assert.equal(
+          update.platformAutomerge,
+          false,
+          `${where} updates must merge through Renovate, which follows automergeSchedule`
+        );
+        assert.equal(update.groupName, 'renovate', `${where} updates must share one PR`);
+      }
+    }
+  }
+
+  // processBranch returns on update-not-scheduled before it reaches the automerge check, so updateNotScheduled: false
+  // would leave the monthly PR open for a human to merge.
+  assert.equal(
+    'updateNotScheduled' in imageUpdate({ updateType: 'patch' }),
+    false,
+    'renovate/renovate updates must keep updateNotScheduled at its default, or the PR never automerges'
+  );
+
+  // The two windows must stay disjoint: a merge inside the branch-creation window frees the next version to open
+  // another PR the same day.
+  const [branchWindow] = imageUpdate({ updateType: 'patch' }).schedule;
+  const [mergeWindow] = imageUpdate({ updateType: 'patch' }).automergeSchedule;
+  assert.equal(
+    branchWindow.split(' ')[2],
+    '1',
+    'The branch-creation window must be the first of the month'
+  );
+  assert.equal(
+    mergeWindow.split(' ')[2],
+    '2-31',
+    'The automerge window must cover the days the branch-creation window leaves out'
+  );
+
+  assert.equal(
+    imageUpdate({ updateType: 'patch', minimumReleaseAge: orgInherited.minimumReleaseAge }).minimumReleaseAge,
+    '7 days',
+    'Batching renovate/renovate must keep the seven-day release-age delay'
+  );
+
+  // A repository that extends automerge.json appends its rules after the inherited ones and sets platformAutomerge
+  // at the top level, which a package rule overrides.
+  const automerged = imageUpdate(
+    { updateType: 'patch', platformAutomerge: automerge.platformAutomerge },
+    [...orgInherited.packageRules, ...automerge.packageRules]
+  );
+  assert.equal(automerged.automerge, true, 'renovate/renovate patch updates must still automerge');
+  assert.equal(
+    automerged.platformAutomerge,
+    false,
+    'automerge.json must not restore platform automerge, which queues the merge when the PR opens'
+  );
+
+  // generateBranchConfig takes the branch schedule from the group member that sorts first, so the image must not
+  // share a group with dependencies that open at any time.
+  for (const updateType of ['patch', 'major']) {
+    const grouped = imageUpdate(
+      { manager: 'github-actions', updateType },
+      [...orgInherited.packageRules, ...githubActions.packageRules]
+    );
+    assert.equal(
+      grouped.groupName,
+      'renovate',
+      `A ${updateType} update must keep the renovate group when the github-actions preset is extended`
+    );
+  }
+
+  // Renovate turns vulnerabilityAlerts into a forced package rule appended after the others.
+  const vulnerability = imageUpdate({ updateType: 'patch' }, [
+    ...orgInherited.packageRules,
+    orgInherited.vulnerabilityAlerts,
+  ]);
+  assert.deepEqual(
+    vulnerability.schedule,
+    ['at any time'],
+    'A vulnerability in the image must open a PR outside the monthly window'
+  );
+
+  for (const packageName of ['nginx', 'ghcr.io/netcracker/example']) {
+    const other = imageUpdate({ packageName, updateType: 'patch' });
+    assert.equal(other.schedule, undefined, `${packageName} updates must open at any time`);
+    assert.equal(other.automergeSchedule, undefined, `${packageName} updates must merge at any time`);
+    assert.equal(other.platformAutomerge, undefined, `${packageName} updates must keep platform automerge`);
+    assert.equal(other.groupName, undefined, `${packageName} updates must not join the renovate group`);
+  }
+
+  // matchDatasources keeps the rule off a dependency of the same name from another datasource.
+  const nonDocker = imageUpdate({ manager: 'github-actions', datasource: 'github-tags', updateType: 'patch' });
+  assert.equal(nonDocker.schedule, undefined, 'A non-Docker renovate/renovate dependency must open at any time');
+  assert.equal(nonDocker.groupName, undefined, 'A non-Docker renovate/renovate dependency must stay ungrouped');
+}
+
 function assertAutomergePolicy(config) {
   const dockerUpdate = (currentValue, newValue) =>
     applyPackageRules(
@@ -1229,8 +1340,10 @@ function assertGraylogPlugins(config) {
 const configs = Object.fromEntries(presetNames.map((name) => [name, readJson(`${name}.json`)]));
 assertRepositoryPolicy(readJson('renovate.json'));
 const orgInherited = readJson('org-inherited-config.json');
+const automerge = readJson('automerge.json');
 assertOrgInheritedPolicy(orgInherited);
 assertAlpineReleaseVersioning(orgInherited);
+assertRenovateImageBatching(orgInherited, automerge, configs['github-actions']);
 assertBasePolicy(configs.base);
 assertGitHubActionsPolicy(configs['github-actions']);
 assertGoPolicy(configs.go);
@@ -1244,6 +1357,6 @@ assertAlpineRepologySync(configs['annotated-versions']);
 assertGrafanaPlugins(configs['grafana-plugins']);
 assertGraylogPlugins(configs['graylog-plugins']);
 assertNoAutomerge(configs);
-assertAutomergePolicy(readJson('automerge.json'));
+assertAutomergePolicy(automerge);
 
 console.log(`Validated ${presetNames.length} capability presets and their extraction fixtures.`);

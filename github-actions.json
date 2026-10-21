@@ -3,9 +3,9 @@
   "description": ["Group GitHub Actions updates by ownership and update compatibility"],
   "packageRules": [
     {
-      "description": ["Group third-party GitHub Actions non-major updates"],
+      "description": ["Group third-party GitHub Actions non-major updates, except the renovate image, which keeps the monthly group of the inherited config"],
       "matchManagers": ["github-actions"],
-      "matchPackageNames": ["!Netcracker/**", "!netcracker/**"],
+      "matchPackageNames": ["!Netcracker/**", "!netcracker/**", "!renovate/renovate", "!ghcr.io/renovatebot/renovate"],
       "matchDepNames": [
         "!go",
         "!golang",
@@ -17,9 +17,9 @@
       "groupName": "third-party GitHub Actions"
     },
     {
-      "description": ["Group third-party GitHub Actions major updates separately"],
+      "description": ["Group third-party GitHub Actions major updates separately, except the renovate image, which keeps the monthly group of the inherited config"],
       "matchManagers": ["github-actions"],
-      "matchPackageNames": ["!Netcracker/**", "!netcracker/**"],
+      "matchPackageNames": ["!Netcracker/**", "!netcracker/**", "!renovate/renovate", "!ghcr.io/renovatebot/renovate"],
       "matchDepNames": [
         "!go",
         "!golang",

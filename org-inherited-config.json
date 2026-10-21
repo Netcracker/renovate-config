@@ -45,6 +45,15 @@
       "groupName": "actions org"
     },
     {
+      "description": ["Batch renovate/renovate Docker tag updates into one PR a month, opened on the first and merged from the second; upstream ships dozens of releases a week, and automerge turns each one into its own PR. Keep the two windows disjoint and updateNotScheduled at its default, or the PR either never merges or is followed by another the same day"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["renovate/renovate", "ghcr.io/renovatebot/renovate"],
+      "groupName": "renovate",
+      "schedule": ["* * 1 * *"],
+      "automergeSchedule": ["* * 2-31 * *"],
+      "platformAutomerge": false
+    },
+    {
       "description": ["Skip the release-age delay for in-house Maven libraries"],
       "matchDatasources": ["maven"],
       "matchPackageNames": ["/^com\\.netcracker[.:]/", "/^org\\.qubership[.:]/"],
