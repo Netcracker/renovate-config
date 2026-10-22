@@ -45,6 +45,35 @@ for every repository in the organization.
   contract, so a library stays usable by consumers that have not upgraded Go yet. Renovate proposes the newest release
   past that age and never lowers the directive; `go mod tidy` still raises it when a dependency requires a newer Go.
 - Groups all `actions/*` GitHub Actions updates into a single PR titled `actions org`.
+- Batches `renovate/renovate` and `ghcr.io/renovatebot/renovate` Docker tag updates into one PR a month per
+  repository, in a group named `renovate`. Renovate opens the branch on the first day of the month and rewrites it to
+  the newest mature tag for the rest of that day (`schedule: ["* * 1 * *"]`), then merges it from the second day on
+  (`automergeSchedule: ["* * 2-31 * *"]`).
+  - In the week of October 14-21, 2026 the image accounted for 459 PRs across 29 repositories, 44% of the 1048
+    Renovate PRs the organization received that week. That is 15.8 per repository per week and roughly 64 a month.
+    Upstream published 66 releases in those seven days.
+  - Automerge turns each of those releases into its own PR. A `schedule` holds back branch creation, so without one
+    every Mend run finds the newest release that has passed the seven-day delay and opens a PR, automerge merges it,
+    and the following run starts over. Repositories run the image to validate their own Renovate configuration, so a
+    fresher patch version of it buys them nothing.
+  - The merge has to land on a day the branch-creation window excludes, and `updateNotScheduled` has to stay at its
+    default of `true`. Renovate reaches the automerge check only on a run that falls inside `schedule`, or that finds
+    the branch out of schedule with its PR open and `updateNotScheduled` left alone. Set that option to `false` and
+    the out-of-schedule run returns before the check, so the monthly PR waits for a human; let the two windows
+    overlap and the release after the merge opens another PR the same day.
+  - `platformAutomerge: false` is required for `automergeSchedule` to apply at all. With platform automerge, GitHub
+    queues the merge when the PR opens, which Renovate documents under `automergeSchedule`. A repository that extends
+    the `automerge` preset still automerges this group, through Renovate instead of through GitHub.
+  - The window is the whole first day rather than the four hours of `schedule:monthly` (`* 0-3 1 * *`). Mend Community
+    runs an active repository about every four hours, Renovate recommends a window of at least three to four hours,
+    and a run that misses a four-hour window waits a month for the next one.
+  - The `github-actions` preset leaves the image out of its third-party groups, so the `renovate` group survives in a
+    repository that extends it. A grouped branch takes its schedule from the member that sorts first by name, so an
+    image sharing a group with dependencies that open at any time would either lose the window or impose it on them.
+  - A major update of the image arrives in its own PR, because `separateMajorMinor` defaults to `true` and splits
+    before grouping. The rule still covers it: it matches on the package name, not on the update type.
+  - Renovate opens a PR for a vulnerability in the image at once, because `vulnerabilityAlerts` applies after package
+    rules.
 - Docker tags that name an Alpine release, such as `1.27.3-alpine3.20`, `1.27-alpine3.20`, or `24-alpine3.21`, compare
   that release as part of the version. By default Renovate treats `-alpine3.20` as a compatibility suffix, proposes only
   tags that end in the same suffix, and stops proposing updates once the image is published only for a newer Alpine;
@@ -108,9 +137,14 @@ a team-specific preset:
   - The limit bounds the review queue, and with automerge it also bounds the rebases: each merge to the base branch
     rebases every open automerge PR. A repository with expensive CI can set a lower `prConcurrentLimit`.
   - A dependency that releases several times a week updates its open PR rather than opening new ones. With automerge,
-    each of those releases can merge. To open PRs for such a dependency only once a week, add a package rule for it in
-    the repository with `"schedule": ["* 0-3 * * 1"]`, the Monday-morning window of `schedule:weekly`.
-- `github-actions` groups third-party and Netcracker actions separately, with major updates in separate groups.
+    each of those releases can merge, so a bare `schedule` does not hold the dependency to one PR a week: it holds
+    back branch creation only, and the branch merges once per Renovate run inside the window. To get one PR a week,
+    add a package rule for the dependency in the repository with `"schedule": ["* 0-3 * * 1"]`, the Monday-morning
+    window of `schedule:weekly`, an `automergeSchedule` that covers the rest of the week, and
+    `"platformAutomerge": false`. The `renovate` rule of the inherited config is the monthly version of that shape.
+- `github-actions` groups third-party and Netcracker actions separately, with major updates in separate groups. The
+  `renovate/renovate` and `ghcr.io/renovatebot/renovate` images stay out of the third-party groups, so they keep the
+  monthly `renovate` group of the inherited config.
 - `go` groups Kubernetes and OpenShift, OpenTelemetry, Prometheus, and Go toolchain updates. Toolchain updates include
   the `toolchain` directive in `go.mod`, explicit GitHub Actions Go versions, and official `golang` builder images. The
   `go` directive in `go.mod` gets its own `Go directive` group, so its update never holds back a toolchain update. The
@@ -327,3 +361,5 @@ organization picks up the new values automatically.
 - [Renovate — Inherited Presets](https://docs.renovatebot.com/config-presets/#inherited-presets)
 - [Renovate — `config:best-practices`](https://docs.renovatebot.com/presets-config/#configbest-practices)
 - [Renovate — `vulnerabilityAlerts`](https://docs.renovatebot.com/configuration-options/#vulnerabilityalerts)
+- [Renovate — `schedule`](https://docs.renovatebot.com/configuration-options/#schedule)
+- [Renovate — `automergeSchedule`](https://docs.renovatebot.com/configuration-options/#automergeschedule)
