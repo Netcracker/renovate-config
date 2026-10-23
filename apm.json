@@ -1,18 +1,19 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": ["Detect APM package dependencies in apm.yml files"],
+  "description": [
+    "Detect APM dependencies pinned to a commit on a branch and APM marketplace entries in apm.yml files; Renovate's built-in apm manager updates dependencies pinned to tags"
+  ],
   "customManagers": [
     {
-      "description": "Update APM dependencies pinned to version tags with #.",
+      "description": "Update APM dependencies pinned to a commit on a branch.",
       "customType": "regex",
       "managerFilePatterns": ["/(^|/)apm\\.yml$/"],
       "matchStrings": [
-        "(?<indentation>[\\t ]*)-\\s+(?<depName>(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(?<apmSubdir>[^\\s#@]+))#(?:[0-9a-f]{40}\\s+#\\s+)?(?<currentValue>[A-Za-z_./-][A-Za-z0-9_./-]*)"
+        "(?<indentation>[\\t ]*)-[^\\S\\n]+(?<depName>(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)(?:/(?<apmSubdir>[^\\s#@]+))?)#(?<currentDigest>[0-9a-f]{40})[^\\S\\n]+#[^\\S\\n]+(?<currentValue>[A-UW-Za-uw-z][A-Za-z0-9_./-]*|[vV][A-Za-z_/-][A-Za-z0-9_./-]*)"
       ],
-      "datasourceTemplate": "github-tags",
-      "versioningTemplate": "semver",
-      "depTypeTemplate": "apm",
-      "autoReplaceStringTemplate": "{{{indentation}}}- {{{depName}}}#{{{newValue}}}"
+      "datasourceTemplate": "git-refs",
+      "packageNameTemplate": "https://github.com/{{{packageName}}}.git",
+      "depTypeTemplate": "apm"
     },
     {
       "description": "Update marketplace APM entries pinned to release tags.",
@@ -42,9 +43,17 @@
   ],
   "packageRules": [
     {
+      "description": [
+        "The built-in apm manager looks a branch name up as a tag and reports 'Could not determine new digest'; the branch dependency manager above updates those pins instead"
+      ],
+      "matchManagers": ["apm"],
+      "matchCurrentValue": "!/^[vV]?[0-9]/",
+      "enabled": false
+    },
+    {
       "description": ["Group APM package updates together and keep them under manual review"],
       "groupName": "apm packages",
-      "matchDepTypes": ["apm"],
+      "matchDepTypes": ["apm", "apm-dev"],
       "labels": ["dependencies", "apm"],
       "automerge": false
     },
