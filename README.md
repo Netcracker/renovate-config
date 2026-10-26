@@ -142,9 +142,19 @@ a team-specific preset:
     add a package rule for the dependency in the repository with `"schedule": ["* 0-3 * * 1"]`, the Monday-morning
     window of `schedule:weekly`, an `automergeSchedule` that covers the rest of the week, and
     `"platformAutomerge": false`. The `renovate` rule of the inherited config is the monthly version of that shape.
+- `automerge` merges minor, patch, pin, and digest updates through GitHub's auto-merge once the required checks pass.
+  It also merges major updates of the actions GitHub publishes under `actions/*` and `github/*`: a PR-triggered
+  workflow runs every action it uses, so a green PR has run the new major, and these majors are mostly runtime moves
+  such as a Node.js bump. Majors of every other dependency wait for review.
+  - The checks do not run a release, scheduled, or push-only workflow, so an action used only there merges without
+    having run. A repository where such a workflow is costly to break can add a package rule with
+    `"automerge": false` for those files (`matchFileNames`).
 - `github-actions` groups third-party and Netcracker actions separately, with major updates in separate groups. The
   `renovate/renovate` and `ghcr.io/renovatebot/renovate` images stay out of the third-party groups, so they keep the
   monthly `renovate` group of the inherited config.
+  - Majors of `actions/*` and `github/*` get a group of their own, `major GitHub-published Actions`. Renovate
+    automerges a group only when every update in it automerges, so with the `automerge` preset another third-party
+    major in a shared group would hold them for review.
 - `go` groups Kubernetes and OpenShift, OpenTelemetry, Prometheus, and Go toolchain updates. Toolchain updates include
   the `toolchain` directive in `go.mod`, explicit GitHub Actions Go versions, and official `golang` builder images. The
   `go` directive in `go.mod` gets its own `Go directive` group, so its update never holds back a toolchain update. The
