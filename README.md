@@ -166,7 +166,11 @@ a team-specific preset:
   inherited config.
 - `go-catch-all` groups minor and patch updates for Go modules not covered by the `go` or `netcracker-dependencies`
   presets. Major updates remain separate.
-- `go-tidy` runs `go mod tidy` after Go module updates for repositories that do not use the `go` preset.
+- `go-tidy` runs `go mod tidy` after Go module updates for repositories that do not use the `go` preset. On a major
+  update of a module with a `/vN` path, such as `/v3` to `/v4`, it also rewrites the import paths in `.go` files
+  (`gomodUpdateImportPaths`). Renovate runs `go mod tidy` on a major update only with that option, so without it the
+  PR changes `go.mod` alone and the code still imports the old major. The module path in other files, such as
+  `-ldflags -X` in a Makefile, is left as it was.
 - `maven-groupid` groups Maven updates by `groupId`. Maven vulnerability updates use the same grouping, while
   vulnerability updates from other ecosystems remain separate by datasource and dependency.
 - `netcracker-dependencies` groups internal dependencies by ecosystem and removes their release-age delay.

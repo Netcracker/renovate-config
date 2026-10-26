@@ -1,11 +1,11 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": ["Run go mod tidy after Go module updates"],
+  "description": ["Run go mod tidy after Go module updates, and rewrite import paths on major updates"],
   "packageRules": [
     {
-      "description": ["Run go mod tidy after Go module updates"],
+      "description": ["Run go mod tidy after Go module updates. On a major update of a /vN module, rewrite the import paths to the new major; without gomodUpdateImportPaths Renovate skips go mod tidy on major updates, and the PR changes only go.mod while the code still imports the old major"],
       "matchManagers": ["gomod"],
-      "postUpdateOptions": ["gomodTidy"]
+      "postUpdateOptions": ["gomodTidy", "gomodUpdateImportPaths"]
     }
   ]
 }

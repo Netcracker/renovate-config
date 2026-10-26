@@ -287,7 +287,9 @@ function assertGoPolicy(config) {
 function assertGoTidyPolicy(config) {
   const rule = findRule(config, 'Run go mod tidy after Go module updates');
   assert.deepEqual(rule.matchManagers, ['gomod']);
-  assert.deepEqual(rule.postUpdateOptions, ['gomodTidy']);
+  // Renovate runs go mod tidy on a major update only when gomodUpdateImportPaths is set (artifacts.ts in
+  // lib/modules/manager/gomod), so without it a major PR leaves the code importing the old major.
+  assert.deepEqual(rule.postUpdateOptions, ['gomodTidy', 'gomodUpdateImportPaths']);
 }
 
 function assertGoCatchAllPolicy(config) {
