@@ -871,6 +871,57 @@ function assertAutomergePolicy(config) {
   }
 }
 
+// Renovate automerges a grouped branch only when every update in it automerges (generateBranchConfig), so a major of
+// a GitHub-published action has to stay out of the group that holds other third-party majors.
+function assertGitHubPublishedActionMajors(orgInherited, githubActions, automerge) {
+  const outcome = (packageName, updateType, presets) => {
+    const update = applyPackageRules(
+      { manager: 'github-actions', datasource: 'github-tags', packageName, updateType },
+      [orgInherited, ...presets].flatMap((preset) => preset.packageRules)
+    );
+    return { automerge: update.automerge === true, groupName: update.groupName };
+  };
+  const automergeOnly = [automerge];
+  const withGroups = [githubActions, automerge];
+  assert.deepEqual(
+    {
+      'actions/checkout major, automerge': outcome('actions/checkout', 'major', automergeOnly),
+      'github/codeql-action major, automerge': outcome('github/codeql-action', 'major', automergeOnly),
+      'docker/build-push-action major, automerge': outcome('docker/build-push-action', 'major', automergeOnly),
+      'actions/checkout major, github-actions and automerge': outcome('actions/checkout', 'major', withGroups),
+      'github/codeql-action major, github-actions and automerge': outcome('github/codeql-action', 'major', withGroups),
+      'docker/build-push-action major, github-actions and automerge': outcome(
+        'docker/build-push-action',
+        'major',
+        withGroups
+      ),
+      'actions/checkout minor, github-actions and automerge': outcome('actions/checkout', 'minor', withGroups),
+    },
+    {
+      'actions/checkout major, automerge': { automerge: true, groupName: 'actions org' },
+      'github/codeql-action major, automerge': { automerge: true, groupName: undefined },
+      'docker/build-push-action major, automerge': { automerge: false, groupName: undefined },
+      'actions/checkout major, github-actions and automerge': {
+        automerge: true,
+        groupName: 'major GitHub-published Actions',
+      },
+      'github/codeql-action major, github-actions and automerge': {
+        automerge: true,
+        groupName: 'major GitHub-published Actions',
+      },
+      'docker/build-push-action major, github-actions and automerge': {
+        automerge: false,
+        groupName: 'major third-party GitHub Actions',
+      },
+      'actions/checkout minor, github-actions and automerge': {
+        automerge: true,
+        groupName: 'third-party GitHub Actions',
+      },
+    },
+    'Majors of actions/* and github/* must automerge in a group of their own; other third-party majors must wait for review'
+  );
+}
+
 function assertAnnotatedVersions(config) {
   const annotatedManagers = config.customManagers.filter(
     (manager) => manager.depTypeTemplate === 'annotated-version'
@@ -1358,5 +1409,6 @@ assertGrafanaPlugins(configs['grafana-plugins']);
 assertGraylogPlugins(configs['graylog-plugins']);
 assertNoAutomerge(configs);
 assertAutomergePolicy(automerge);
+assertGitHubPublishedActionMajors(orgInherited, configs['github-actions'], automerge);
 
 console.log(`Validated ${presetNames.length} capability presets and their extraction fixtures.`);

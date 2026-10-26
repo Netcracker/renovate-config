@@ -31,6 +31,13 @@
       "groupName": "major third-party GitHub Actions"
     },
     {
+      "description": ["Group major updates of the actions GitHub publishes under actions/* and github/* apart from other third-party majors; Renovate automerges a group only when every update in it automerges, and the automerge preset merges these majors only"],
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["actions/**", "github/**"],
+      "matchUpdateTypes": ["major"],
+      "groupName": "major GitHub-published Actions"
+    },
+    {
       "description": ["Group Netcracker GitHub Actions non-major updates"],
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["Netcracker/**", "netcracker/**"],
