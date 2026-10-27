@@ -29,6 +29,17 @@ for every repository in the organization.
 - Digest pinning proceeds immediately because it only freezes a mutable reference already in use.
 - `osvVulnerabilityAlerts: true` enables OSV.dev in addition to GitHub Security Advisories.
 - Security updates bypass the seven-day delay. The `vulnerabilityAlerts` block opens vulnerability PRs immediately.
+- `prBodyTemplate` puts the Configuration section, which carries the `🚦 **Automerge**: Enabled.` line, and the
+  rebase checkbox right after the update table and the warnings, ahead of the security advisories and the release
+  notes. Renovate caps a GitHub PR body at 58000 characters and keeps the head of a longer one. With Renovate's default
+  order, a security update whose advisories alone exceed the cap loses both the Automerge line and the checkbox.
+  - On October 27, 2026, Renovate opened Netcracker/qubership-authz-agent#153 and #154 in one run, with automerge on
+    for both. `renovate-approve` approved #154 within seconds and never approved #153, whose body had been cut before
+    its Configuration section; the bot's source is not public, so the missing Automerge line is the inferred cause.
+    The repository requires one approving review, so #153 stayed open with every check green.
+  - A body over the cap also loses the `renovate-debug` comment Renovate appends at the end. Without it, Renovate
+    stops updating the labels of that PR when the configured labels change, and does not notice a target branch
+    changed by hand. With the default order, a body over the cap because of its release notes kept that comment.
 - Go patch updates, such as `1.26.4` to `1.26.8` in the `toolchain` directive in `go.mod`, and official
   `golang.org/x/*` updates bypass the delay. An up-to-date toolchain builds Go security fixes into the compiled
   binaries, which matters most for services. Other Go module dependencies keep the standard seven-day delay.
