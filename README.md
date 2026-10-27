@@ -45,6 +45,9 @@ for every repository in the organization.
   contract, so a library stays usable by consumers that have not upgraded Go yet. Renovate proposes the newest release
   past that age and never lowers the directive; `go mod tidy` still raises it when a dependency requires a newer Go.
 - Groups all `actions/*` GitHub Actions updates into a single PR titled `actions org`.
+- Keeps Byte Buddy (`net.bytebuddy:*`) on its regular build. Every release is also published with a `-jdk5` qualifier,
+  and Maven ordering ranks it above the plain version, so without the rule Renovate offers `1.18.15` → `1.18.15-jdk5`.
+  A dependency already on a `-jdk5` build keeps receiving `-jdk5` updates.
 - Batches `renovate/renovate` and `ghcr.io/renovatebot/renovate` Docker tag updates into one PR a month per
   repository, in a group named `renovate`. Renovate opens the branch on the first day of the month and rewrites it to
   the newest mature tag for the rest of that day (`schedule: ["* * 1 * *"]`), then merges it from the second day on

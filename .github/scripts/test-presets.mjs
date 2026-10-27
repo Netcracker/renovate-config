@@ -484,6 +484,34 @@ function assertOrgInheritedPolicy(config) {
     undefined,
     'The exception must apply only to the GitHub Actions manager'
   );
+  const byteBuddy = {
+    manager: 'maven',
+    datasource: 'maven',
+    packageName: 'net.bytebuddy:byte-buddy',
+    currentValue: '1.18.15',
+  };
+  assert.equal(
+    applyPackageRules(byteBuddy, config.packageRules).allowedVersions,
+    '!/-jdk5$/',
+    'Byte Buddy on the regular build must not be offered the -jdk5 build'
+  );
+  assert.equal(
+    applyPackageRules({ ...byteBuddy, packageName: 'net.bytebuddy:byte-buddy-agent' }, config.packageRules)
+      .allowedVersions,
+    '!/-jdk5$/',
+    'The rule must cover every net.bytebuddy artifact'
+  );
+  assert.equal(
+    applyPackageRules({ ...byteBuddy, currentValue: '1.18.15-jdk5' }, config.packageRules).allowedVersions,
+    undefined,
+    'Byte Buddy already on the -jdk5 build must keep receiving -jdk5 updates'
+  );
+  assert.equal(
+    applyPackageRules({ ...byteBuddy, packageName: 'org.ow2.asm:asm' }, config.packageRules).allowedVersions,
+    undefined,
+    'Other Maven packages must not be restricted'
+  );
+
   const projectOverride = {
     matchManagers: ['github-actions'],
     matchPackageNames: ['IEvangelist/profanity-filter'],
