@@ -54,6 +54,13 @@
       "platformAutomerge": false
     },
     {
+      "description": ["Keep Byte Buddy on its regular build. Every release is also published with a -jdk5 qualifier for Java 5, and Maven ordering ranks that qualifier above the plain version, so Renovate offers 1.18.15 → 1.18.15-jdk5 as an update. A dependency already on a -jdk5 build keeps receiving -jdk5 updates"],
+      "matchDatasources": ["maven"],
+      "matchPackageNames": ["/^net\\.bytebuddy:/"],
+      "matchCurrentValue": "!/-jdk5$/",
+      "allowedVersions": "!/-jdk5$/"
+    },
+    {
       "description": ["Skip the release-age delay for in-house Maven libraries"],
       "matchDatasources": ["maven"],
       "matchPackageNames": ["/^com\\.netcracker[.:]/", "/^org\\.qubership[.:]/"],
