@@ -3,6 +3,9 @@
   "description": ["Automerge non-major dependency updates after required checks pass"],
   "automergeType": "pr",
   "platformAutomerge": true,
+  "assignAutomerge": false,
+  "assigneesFromCodeOwners": false,
+  "reviewersFromCodeOwners": false,
   "packageRules": [
     {
       "description": ["Automerge all non-major dependency updates"],
