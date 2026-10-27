@@ -4,6 +4,17 @@
   "extends": [
     "config:best-practices"
   ],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__tests__/**",
+    "**/__fixtures__/**",
+    "**/test/**/fixtures/**",
+    "**/tests/**/fixtures/**",
+    "**/src/test/resources/**"
+  ],
   "minimumReleaseAge": "7 days",
   "internalChecksFilter": "strict",
   "osvVulnerabilityAlerts": true,

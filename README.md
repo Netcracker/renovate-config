@@ -17,6 +17,16 @@ for every repository in the organization.
 - Extends [`config:best-practices`](https://docs.renovatebot.com/presets-config/#configbest-practices), which provides
   the recommended baseline, Dependency Dashboard, config migrations, dev-dependency pinning, and SHA-pinned GitHub
   Actions with semver hints.
+- Renovate updates dependency files under `test/` and `tests/` directories, such as the Go module of an integration
+  test suite or the `requirements.txt` of a test image, and opens security PRs for them.
+  `config:best-practices` skips those directories; the inherited `ignorePaths` keeps its other entries
+  (`node_modules`, `bower_components`, `vendor`, `examples`, `__tests__`, `__fixtures__`) and skips only the
+  fixture directories of a test tree: a `fixtures` directory under `test/` or `tests/`, and `src/test/resources`.
+  NuGet projects keep the preset's own NuGet list, which already scans test directories and skips neither
+  `__tests__` nor these fixture directories.
+  Renovate does not merge `ignorePaths`, so a repository whose own config sets it, or extends `config:recommended`,
+  `config:best-practices`, `:ignoreModulesAndTests`, or this repository's [`default.json`](#defaultjson-preset),
+  replaces this list.
 - `minimumReleaseAge: "7 days"` delays updates until a release has been public for one week.
 - `internalChecksFilter: "strict"` proposes the latest mature version while a newer release is still inside the
   release-age window.
@@ -116,13 +126,18 @@ The pin and digest exceptions are package rules.
 Use later repository package rules to restore stricter checks.
 A top-level `minimumReleaseAgeBehaviour` value does not override a matching inherited package rule.
 
+To keep a directory of test data out of Renovate, set `ignorePaths` in the repository and repeat the inherited entries
+from [`org-inherited-config.json`](./org-inherited-config.json) in it: Renovate replaces the list instead of adding to
+it.
+
 To opt a repository out entirely, set `"enabled": false` (or remove the Mend installation from that repo).
 
 ## `default.json` preset
 
 [`default.json`](./default.json) is a small explicit preset (`extends: ["config:recommended"]`) for a repository that
 opts into `"github>Netcracker/renovate-config"`. The automatic inheritance described above comes from
-`org-inherited-config.json`.
+`org-inherited-config.json`. Through `config:recommended`, this preset skips `test/` and `tests/` directories again,
+so a repository that extends it gets no updates for dependency files there.
 
 ## Capability presets
 
