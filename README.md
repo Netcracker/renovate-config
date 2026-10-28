@@ -94,6 +94,14 @@ would
     proposes a new major line before it reaches LTS. A repository whose own `renovate.json` extends
     `config:recommended` or `config:best-practices`, directly or through the `base` preset, applies the workaround again
     after this rule, and its `node` tags with an Alpine release stay on the Alpine release they have.
+- Netcracker base images get versioning that matches their tags. Renovate's Docker versioning rejects
+  `qubership-core-base:alpine-2.5.0` and `qubership-nginx-base:alpine-2.5.0` as invalid values and proposes nothing,
+  and it reads `qubership-java-base:21-alpine-2.5.0` as Java 21, so it proposes `25-alpine-2.5.0` as a major update.
+  - `qubership-core-base` and `qubership-nginx-base` tags move to the newest `alpine-<version>` or `ubi-<version>`,
+    and a `ubi` tag stays `ubi`. A legacy tag without a prefix, such as `2.5.0`, moves to `alpine-2.5.8`, and `latest`
+    is replaced with `alpine-latest`.
+  - `qubership-java-base` tags keep their Java release and OS: `21-alpine-2.5.0` moves to `21-alpine-2.5.8`.
+  - Pull request builds such as `alpine-324-merge-snapshot` are never proposed.
 - Temporarily disables Renovate updates for the SHA-pinned `IEvangelist/profanity-filter` Action only when Renovate
   extracts the broken `13.4.6` or `v13.4.6` value from its four-component version comment. Other versions remain
   enabled. Remove this exception after the exact published tag or alias resolves successfully and the shared workflow

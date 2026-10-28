@@ -132,6 +132,26 @@
       "versionCompatibility": null
     },
     {
+      "description": ["Version qubership-java-base tags <java>-<os>-<version> by the image version, and keep the Java release and the OS (alpine or ubi) of the current tag; Docker versioning reads 21-alpine-2.5.0 as Java 21 and proposes 25-alpine-2.5.0"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["/.+/netcracker/qubership-java-base.*/"],
+      "versioning": "regex:^(?<compatibility>\\d+-(?:alpine|ubi))-(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$"
+    },
+    {
+      "description": ["Version qubership-core-base and qubership-nginx-base tags alpine-<version> and ubi-<version>, which Docker versioning rejects as invalid; a ubi tag stays ubi, and a legacy unprefixed tag moves to alpine-<version>"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["/.+/netcracker/qubership-(core|nginx)-base$/"],
+      "versioning": "regex:^(?:(?<compatibility>ubi)-|alpine-)?(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+      "allowedVersions": "/^(alpine|ubi)-\\d/"
+    },
+    {
+      "description": ["Replace the legacy latest tag of qubership-core-base and qubership-nginx-base with alpine-latest"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": ["/.+/netcracker/qubership-(core|nginx)-base$/"],
+      "matchCurrentValue": "latest",
+      "replacementVersion": "alpine-latest"
+    },
+    {
       "description": ["Do not delay pinning mutable references; keep last to override inherited release-age rules"],
       "matchUpdateTypes": ["pinDigest"],
       "minimumReleaseAge": null

@@ -704,18 +704,20 @@ function compareReleases(left, right) {
   return 0;
 }
 
-// Picks the tag Renovate would propose among the published ones: a tag the versioning parses, with the same
-// compatibility suffix as the current tag, and the highest release.
-function newestCompatibleTag(config, currentValue, publishedTags) {
-  const { versioning } = applyPackageRules(
-    { manager: 'dockerfile', datasource: 'docker', packageName: 'nginx', currentValue },
+// Picks the tag Renovate would propose among the published ones: a tag the versioning parses, that allowedVersions
+// admits, with the same compatibility suffix as the current tag, and the highest release.
+function newestCompatibleTag(config, currentValue, publishedTags, packageName = 'nginx') {
+  const { versioning, allowedVersions } = applyPackageRules(
+    { manager: 'dockerfile', datasource: 'docker', packageName, currentValue },
     config.packageRules
   );
+  assert.match(allowedVersions ?? '/.*/', /^\/.*\/$/, `${packageName} allowedVersions must be a regex`);
+  const allowed = new RegExp((allowedVersions ?? '/.*/').slice(1, -1));
   assert.match(versioning ?? '', /^regex:/, `${currentValue} must get regex versioning`);
   const current = parseRegexVersion(versioning, currentValue);
   return publishedTags
     .map((tag) => ({ tag, version: parseRegexVersion(versioning, tag) }))
-    .filter(({ version }) => version && version.compatibility === current.compatibility)
+    .filter(({ tag, version }) => version && allowed.test(tag) && version.compatibility === current.compatibility)
     .reduce((best, candidate) => (compareReleases(candidate.version.release, best.version.release) > 0 ? candidate : best), {
       tag: currentValue,
       version: current,
@@ -777,6 +779,50 @@ function assertAlpineReleaseVersioning(config) {
     ).versioning,
     undefined,
     'A non-Docker dependency with an Alpine-like version must keep its versioning'
+  );
+}
+
+// Netcracker base images tag a release as <os>-<version> or <java>-<os>-<version>. Docker versioning rejects the
+// first as an invalid value and reads the second as a Java release, so the inherited config gives them regex
+// versioning.
+function assertQubershipBaseImageVersioning(config) {
+  const coreTags = ['2.5.0', '2.5.8', 'alpine-2.5.0', 'alpine-2.5.8', 'ubi-2.5.0', 'ubi-2.5.8', 'alpine-324-merge-snapshot'];
+  const javaTags = ['21-alpine-2.5.0', '21-alpine-2.5.8', '25-alpine-2.5.8', '25-ubi-2.5.0', '25-ubi-2.5.8'];
+  const core = 'ghcr.io/netcracker/qubership-core-base';
+  const nginx = 'ghcr.io/netcracker/qubership-nginx-base';
+  const java = 'ghcr.io/netcracker/qubership-java-base';
+  assert.deepEqual(
+    {
+      'core-base alpine-2.5.0': newestCompatibleTag(config, 'alpine-2.5.0', coreTags, core),
+      'core-base ubi-2.5.0': newestCompatibleTag(config, 'ubi-2.5.0', coreTags, core),
+      'core-base 2.5.0': newestCompatibleTag(config, '2.5.0', coreTags, core),
+      'nginx-base alpine-2.5.0': newestCompatibleTag(config, 'alpine-2.5.0', coreTags, nginx),
+      'java-base 21-alpine-2.5.0': newestCompatibleTag(config, '21-alpine-2.5.0', javaTags, java),
+      'java-base 25-ubi-2.5.0': newestCompatibleTag(config, '25-ubi-2.5.0', javaTags, java),
+    },
+    {
+      'core-base alpine-2.5.0': 'alpine-2.5.8',
+      'core-base ubi-2.5.0': 'ubi-2.5.8',
+      'core-base 2.5.0': 'alpine-2.5.8',
+      'nginx-base alpine-2.5.0': 'alpine-2.5.8',
+      'java-base 21-alpine-2.5.0': '21-alpine-2.5.8',
+      'java-base 25-ubi-2.5.0': '25-ubi-2.5.8',
+    },
+    'A base image tag must move to the newest release with the same OS, and for java-base the same Java release'
+  );
+  assert.equal(
+    applyPackageRules({ manager: 'dockerfile', datasource: 'docker', packageName: core, currentValue: 'latest' }, config.packageRules)
+      .replacementVersion,
+    'alpine-latest',
+    'The legacy latest tag of qubership-core-base must be replaced with alpine-latest'
+  );
+  assert.equal(
+    applyPackageRules(
+      { manager: 'dockerfile', datasource: 'docker', packageName: 'ghcr.io/netcracker/qubership-core-base-images', currentValue: 'alpine-2.5.0' },
+      config.packageRules
+    ).versioning,
+    undefined,
+    'An image whose name only starts with qubership-core-base must keep Docker versioning'
   );
 }
 
@@ -1424,6 +1470,7 @@ const orgInherited = readJson('org-inherited-config.json');
 const automerge = readJson('automerge.json');
 assertOrgInheritedPolicy(orgInherited);
 assertAlpineReleaseVersioning(orgInherited);
+assertQubershipBaseImageVersioning(orgInherited);
 assertRenovateImageBatching(orgInherited, automerge, configs['github-actions']);
 assertBasePolicy(configs.base);
 assertGitHubActionsPolicy(configs['github-actions']);
