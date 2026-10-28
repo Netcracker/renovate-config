@@ -386,13 +386,18 @@ Design notes:
 
 - Dependencies use a tag such as `package#v1.2.0`. Renovate advances the tag, while `apm.lock.yaml` stores the resolved
   commit SHA. Dependency branch refs such as `package#main` remain unchanged.
+- A dependency pinned to a commit with a branch comment, such as `package#<sha>  # main`, follows the branch: Renovate
+  replaces the SHA with the branch head and writes the line as `package#<new sha> # main`. Renovate's built-in `apm`
+  manager reads that comment as a release tag, so the preset looks up every comment that is not a release tag as a
+  branch through `git-refs`. A release tag here is `v1.2.3`, `1.2.3`, or `<name>-v1.2.3`, with an optional prerelease
+  or build suffix; a branch such as `release/1.2.0` or `lts/26.1` is followed like `main`.
 - A legacy dependency pin such as `package#<sha>  # v1.2.0` becomes `package#v1.3.0` on its first tag update. The
   dependency SHA remains in `apm.lock.yaml`.
 - Marketplace sources use an immutable SHA with a source-ref comment, such as `ref: <sha>  # v1.2.0` or
   `ref: <sha>  # main`, because `apm.lock.yaml` does not cover these entries.
 - Marketplace release updates change both the SHA and the semantic-version tag. Marketplace branch updates change the
   SHA to the branch head and keep the branch comment.
-- APM updates remain under manual review.
+- APM updates, including those to `devDependencies`, remain under manual review.
 
 Use it from a repository-local config:
 

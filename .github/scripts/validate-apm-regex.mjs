@@ -26,6 +26,98 @@ if (apmPackageRule.automerge !== false) {
   throw new Error('APM updates must stay under manual review (automerge: false)');
 }
 
+// Renovate's built-in apm manager extracts devDependencies.apm as depType apm-dev.
+if (!apmPackageRule.matchDepTypes.includes('apm-dev')) {
+  throw new Error(
+    'APM package rule in apm.json must also match depType apm-dev, which Renovate\'s apm manager gives ' +
+      `devDependencies, got matchDepTypes ${JSON.stringify(apmPackageRule.matchDepTypes)}; without it, an APM ` +
+      "devDependencies update gets a branch of its own outside the apm packages group, and the automerge preset's " +
+      'digest rule can merge it'
+  );
+}
+const gitRefsReleaseAgeRule = config.packageRules.find(
+  (rule) => rule.matchDatasources?.includes('git-refs') && 'minimumReleaseAge' in rule
+);
+if (!gitRefsReleaseAgeRule) {
+  throw new Error('APM git-refs release-age rule was not found');
+}
+if (!gitRefsReleaseAgeRule.matchDepTypes?.includes('apm-dev')) {
+  throw new Error(
+    'APM git-refs release-age rule in apm.json must also match depType apm-dev, got matchDepTypes ' +
+      `${JSON.stringify(gitRefsReleaseAgeRule.matchDepTypes)}; git-refs reports no release timestamp, so without it ` +
+      'an APM devDependencies update outside Netcracker/** is held as pending by minimumReleaseAge and never opened'
+  );
+}
+
+// The built-in apm manager reads the comment in package#<sha>  # main as a release tag and looks the dependency up
+// with github-tags, which has no tag named main. This rule looks up such a pin as a branch through git-refs.
+const branchPinRule = config.packageRules.find((rule) => rule.overrideDatasource === 'git-refs');
+if (!branchPinRule) {
+  throw new Error(
+    'apm.json has no packageRule with overrideDatasource git-refs; without it, a dependency pinned as ' +
+      'package#<sha>  # main is looked up as a tag named main, never updated, and reported on the Dependency ' +
+      'Dashboard as "Could not determine new digest for update (github-tags package <owner>/<repo>)"'
+  );
+}
+if (
+  JSON.stringify(branchPinRule.matchManagers) !== JSON.stringify(['apm']) ||
+  JSON.stringify(branchPinRule.matchDatasources) !== JSON.stringify(['github-tags'])
+) {
+  throw new Error(
+    `The APM branch-pin rule in apm.json must match only manager apm on datasource github-tags, got matchManagers ` +
+      `${JSON.stringify(branchPinRule.matchManagers)} and matchDatasources ` +
+      `${JSON.stringify(branchPinRule.matchDatasources)}; the custom managers set their own datasources`
+  );
+}
+if (branchPinRule.versioning !== 'git') {
+  throw new Error(
+    `The APM branch-pin rule in apm.json must set versioning to git, got ${JSON.stringify(branchPinRule.versioning)}; ` +
+      "the apm manager's default versioning reads a digit in a branch name, as in feat/apm-2, as a version and " +
+      'offers to replace the branch pin with a release tag'
+  );
+}
+if (branchPinRule.overridePackageName !== 'https://github.com/{{{packageName}}}.git') {
+  throw new Error(
+    'The APM branch-pin rule in apm.json must set overridePackageName to https://github.com/{{{packageName}}}.git, ' +
+      `got ${JSON.stringify(branchPinRule.overridePackageName)}; git-refs takes a clone URL, and the apm manager ` +
+      'gives packageName as owner/repo'
+  );
+}
+
+// matchCurrentValue "!/<regex>/" applies the rule to a comment the regex does not match.
+const negatedReleaseTagPattern = /^!\/(.+)\/$/.exec(branchPinRule.matchCurrentValue ?? '');
+if (!negatedReleaseTagPattern) {
+  throw new Error(
+    `The APM branch-pin rule in apm.json must set matchCurrentValue to a negated regex "!/<regex>/" that matches a ` +
+      `release tag, got ${JSON.stringify(branchPinRule.matchCurrentValue)}`
+  );
+}
+const releaseTagPattern = new RegExp(negatedReleaseTagPattern[1]);
+const misclassifiedComments = [
+  ...[
+    'main',
+    'develop',
+    'feat/agent-packages',
+    'feature/ABC-1234',
+    'feat/apm-2',
+    'lts/26.1',
+    'release/1.2.0',
+    'release/v1.0.7',
+    'v1.2',
+  ]
+    .filter((comment) => releaseTagPattern.test(comment))
+    .map((comment) => `"${comment}" names a branch but stays a github-tags lookup`),
+  ...['v1.3.1', '1.2.0', '2.6.3', 'v1.2.3-rc.1', 'v1.2.3+build.4', 'ai-agent-telemetry-v1.2.0']
+    .filter((comment) => !releaseTagPattern.test(comment))
+    .map((comment) => `"${comment}" is a release tag but goes to git-refs`),
+];
+if (misclassifiedComments.length > 0) {
+  throw new Error(
+    `The APM branch-pin rule's matchCurrentValue ${branchPinRule.matchCurrentValue} in apm.json misclassifies ` +
+      `${misclassifiedComments.length} comment(s): ${misclassifiedComments.join('; ')}`
+  );
+}
+
 for (const [name, manager, datasource] of [
   ['dependencies', depsManager, 'github-tags'],
   ['marketplace release', marketReleaseManager, 'github-tags'],
