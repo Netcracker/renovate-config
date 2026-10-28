@@ -1464,6 +1464,94 @@ function assertGraylogPlugins(config) {
   }
 }
 
+// Port of smartTruncate from Renovate's lib/modules/platform/utils/pr-body.ts, with the 58000-character limit
+// of lib/modules/platform/github/index.ts. It keeps the Configuration section only when the cut falls inside
+// "### Release Notes"; otherwise it keeps the head of the body and drops the rest.
+const gitHubMaxPrBodyLength = 58000;
+
+function truncatePrBody(input) {
+  if (input.length < gitHubMaxPrBodyLength) {
+    return input;
+  }
+  const note = '> ℹ️ **Note**\n> \n> This PR body was truncated due to platform limits.\n\n';
+  const truncationNotice = '\n\n> ❗ **Important**\n> \n> ✂️ PR body was truncated to here.\n';
+  const truncatedInput = note + input;
+  const match = /(?<preNotes>.*### Release Notes)(?<releaseNotes>.*)### Configuration(?<postNotes>.*)/s.exec(
+    truncatedInput
+  );
+  const divider = '\n\n</details>\n\n---\n\n### Configuration';
+  const availableLength = match
+    ? gitHubMaxPrBodyLength -
+      (match.groups.preNotes.length + match.groups.postNotes.length + divider.length + truncationNotice.length)
+    : 0;
+  if (availableLength <= 0) {
+    return truncatedInput.substring(0, gitHubMaxPrBodyLength - truncationNotice.length) + truncationNotice;
+  }
+  return (
+    match.groups.preNotes +
+    match.groups.releaseNotes.slice(0, availableLength) +
+    truncationNotice +
+    divider +
+    match.groups.postNotes
+  );
+}
+
+function renderTruncatedPrBody(template, sections) {
+  // Renovate appends its debug comment after rendering the template and before truncating.
+  return truncatePrBody(`${render(template, sections)}\n<!--renovate-debug:e30=-->\n`);
+}
+
+function assertPrBodyKeepsAutomergeStatus(config) {
+  // The sections as Renovate renders them; the notes carry the security advisories.
+  const advisory =
+    '\n\n---\n\n### jackson-databind: advisory\n\n<details>\n<summary>More information</summary>\n\n' +
+    'Details of the advisory.\n'.repeat(200) +
+    '\n</details>';
+  const sections = {
+    header: '',
+    table: '| Package | Change |\n|---|---|\n| jackson-databind | `2.17.2` → `2.18.11` |\n',
+    warnings: '',
+    notes: '',
+    changelogs: '\n\n---\n\n### Release Notes\n\n<details>\n\nChangelog line.\n\n</details>',
+    configDescription: '\n\n---\n\n### Configuration\n\n🚦 **Automerge**: Enabled.\n\n',
+    controls: '\n\n---\n\n - [ ] <!-- rebase-check -->If you want to rebase/retry this PR, check this box\n\n',
+    footer: '',
+  };
+  const longAdvisories = { ...sections, notes: advisory.repeat(15) };
+  const longReleaseNotes = {
+    ...sections,
+    changelogs: '\n\n---\n\n### Release Notes\n\n<details>\n\n' + 'Changelog line.\n'.repeat(5000) + '\n</details>',
+  };
+  const renovateDefault =
+    '{{{header}}}{{{table}}}{{{warnings}}}{{{notes}}}{{{changelogs}}}{{{configDescription}}}{{{controls}}}{{{footer}}}';
+
+  const defaultBody = renderTruncatedPrBody(renovateDefault, longAdvisories);
+  assert.ok(
+    defaultBody.includes('PR body was truncated to here'),
+    `The advisories fixture must exceed the GitHub limit; the body has ${defaultBody.length} characters`
+  );
+  assert.ok(
+    !defaultBody.includes('**Automerge**: Enabled.'),
+    "The advisories fixture must reproduce the loss of the Automerge status under Renovate's default template"
+  );
+
+  for (const [name, fixture] of Object.entries({ longAdvisories, longReleaseNotes })) {
+    const body = renderTruncatedPrBody(config.prBodyTemplate, fixture);
+    assert.ok(
+      body.includes('PR body was truncated to here'),
+      `${name}: the fixture must exceed the GitHub limit; the body has ${body.length} characters`
+    );
+    assert.ok(
+      body.includes('🚦 **Automerge**: Enabled.'),
+      `${name}: prBodyTemplate must keep the Automerge status in a truncated body`
+    );
+    assert.ok(
+      body.includes('<!-- rebase-check -->'),
+      `${name}: prBodyTemplate must keep the rebase checkbox in a truncated body`
+    );
+  }
+}
+
 const configs = Object.fromEntries(presetNames.map((name) => [name, readJson(`${name}.json`)]));
 assertRepositoryPolicy(readJson('renovate.json'));
 const orgInherited = readJson('org-inherited-config.json');
@@ -1487,5 +1575,6 @@ assertGraylogPlugins(configs['graylog-plugins']);
 assertNoAutomerge(configs);
 assertAutomergePolicy(automerge);
 assertGitHubPublishedActionMajors(orgInherited, configs['github-actions'], automerge);
+assertPrBodyKeepsAutomergeStatus(orgInherited);
 
 console.log(`Validated ${presetNames.length} capability presets and their extraction fixtures.`);

@@ -13,6 +13,7 @@
     "schedule": ["at any time"],
     "prCreation": "immediate"
   },
+  "prBodyTemplate": "{{{header}}}{{{table}}}{{{warnings}}}{{{configDescription}}}{{{controls}}}{{{notes}}}{{{changelogs}}}{{{footer}}}",
   "packageRules": [
     {
       "description": ["Disable the broken IEvangelist/profanity-filter v13.4.6 lookup until its SHA-pinned GitHub Action supports Renovate-compatible version comments (IEvangelist/profanity-filter#168)"],
