@@ -231,7 +231,8 @@ a team-specific preset:
 - `grafana-plugins` updates Grafana plugin ID and version pairs in `plugins.list`, including plugins whose Grafana API
   response contains only one release.
 - `graylog-plugins` updates GitHub release URLs for Graylog plugin JARs in `plugins.list`.
-- `apm` updates APM package references in `apm.yml`.
+- `apm` updates APM marketplace entries in `apm.yml` and keeps every APM update grouped under manual review. Renovate's
+  built-in `apm` manager updates APM dependencies.
 
 The `go` preset includes `go-tidy` to keep dependencies imported behind build tags in `go.sum`. The first Renovate Go
 update after enabling the preset can also remove stale checksums or unused indirect requirements. Review that cleanup
@@ -395,20 +396,26 @@ depName=Netcracker/qubership-test-pipelines
 
 ## `apm.json` preset
 
-[`apm.json`](./apm.json) detects APM package references in `apm.yml` files. It handles dependencies and marketplace
-sources differently because only dependencies are covered by `apm.lock.yaml`.
+[`apm.json`](./apm.json) updates the marketplace entries in `apm.yml` files and puts every APM update in the
+`apm packages` group, under manual review. The `dependencies` and `devDependencies` of an `apm.yml` are updated by
+Renovate's built-in [`apm` manager](https://docs.renovatebot.com/modules/manager/apm/), available in Renovate 44.59.0
+and later. With an older self-hosted Renovate, no APM dependency is updated.
 
 Design notes:
 
-- Dependencies use a tag such as `package#v1.2.0`. Renovate advances the tag, while `apm.lock.yaml` stores the resolved
-  commit SHA. Dependency branch refs such as `package#main` remain unchanged.
-- A legacy dependency pin such as `package#<sha>  # v1.2.0` becomes `package#v1.3.0` on its first tag update. The
-  dependency SHA remains in `apm.lock.yaml`.
+- A dependency on a tag, such as `package#v1.2.0`, moves to the newest tag, while `apm.lock.yaml` stores the resolved
+  commit SHA. A dependency pinned to the commit of a tag, such as `package#<sha>  # v1.2.0`, moves its SHA and its tag
+  together and is written as `package#<new sha> # v1.3.0`, with one space before the comment.
+- A dependency on a branch whose name holds no digit, such as `package#main` or `package#<sha>  # main`, is not
+  updated. For the second form, the Dependency Dashboard reports
+  `Could not determine new digest for update (github-tags package <owner>/<repo>)`. The built-in manager reads a digit
+  in a branch name as a version, so a pin such as `package#<sha>  # release/1.2.0` gets an update to the newest
+  release tag.
 - Marketplace sources use an immutable SHA with a source-ref comment, such as `ref: <sha>  # v1.2.0` or
   `ref: <sha>  # main`, because `apm.lock.yaml` does not cover these entries.
 - Marketplace release updates change both the SHA and the semantic-version tag. Marketplace branch updates change the
   SHA to the branch head and keep the branch comment.
-- APM updates remain under manual review.
+- APM updates, including those to `devDependencies`, remain under manual review.
 
 Use it from a repository-local config:
 
