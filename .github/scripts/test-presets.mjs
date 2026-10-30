@@ -1040,6 +1040,70 @@ function assertAutomergePolicy(config) {
   }
 }
 
+// Even-numbered Node.js releases become LTS, odd-numbered ones never do, so only a move to an even line automerges, and
+// only in a Dockerfile, which the PR checks build.
+function assertNodeImageMajors(config) {
+  const automerges = (packageName, updateType, currentValue, newValue, manager = 'dockerfile', datasource = 'docker') =>
+    applyPackageRules(
+      { manager, datasource, packageName, updateType, currentValue, newValue },
+      config.packageRules
+    ).automerge === true;
+  assert.deepEqual(
+    {
+      'node 24-alpine -> 26-alpine': automerges('node', 'major', '24-alpine', '26-alpine'),
+      'node 24-alpine -> 27-alpine': automerges('node', 'major', '24-alpine', '27-alpine'),
+      'node 24 -> 26': automerges('node', 'major', '24', '26'),
+      'node 24.11.0-alpine3.22 -> 26.1.0-alpine3.22': automerges(
+        'node',
+        'major',
+        '24.11.0-alpine3.22',
+        '26.1.0-alpine3.22'
+      ),
+      'node 24-alpine3.22 -> 25-alpine3.22': automerges('node', 'major', '24-alpine3.22', '25-alpine3.22'),
+      'node 24.11.0-alpine3.22 -> 25.0.0-alpine3.22': automerges(
+        'node',
+        'major',
+        '24.11.0-alpine3.22',
+        '25.0.0-alpine3.22'
+      ),
+      'node 24-alpine3.22 -> 26-alpine4.0': automerges('node', 'major', '24-alpine3.22', '26-alpine4.0'),
+      'node 98-alpine -> 100-alpine': automerges('node', 'major', '98-alpine', '100-alpine'),
+      'docker.io/library/node 24-alpine -> 26-alpine': automerges(
+        'docker.io/library/node',
+        'major',
+        '24-alpine',
+        '26-alpine'
+      ),
+      'example/node 24-alpine -> 26-alpine': automerges('example/node', 'major', '24-alpine', '26-alpine'),
+      'nginx 1.31.6 -> 2.0.0': automerges('nginx', 'major', '1.31.6', '2.0.0'),
+      'node 24-alpine -> 26-alpine in docker-compose': automerges(
+        'node',
+        'major',
+        '24-alpine',
+        '26-alpine',
+        'docker-compose'
+      ),
+      'node 24 -> 26 in .nvmrc': automerges('node', 'major', '24', '26', 'nvm', 'node-version'),
+    },
+    {
+      'node 24-alpine -> 26-alpine': true,
+      'node 24-alpine -> 27-alpine': false,
+      'node 24 -> 26': true,
+      'node 24.11.0-alpine3.22 -> 26.1.0-alpine3.22': true,
+      'node 24-alpine3.22 -> 25-alpine3.22': false,
+      'node 24.11.0-alpine3.22 -> 25.0.0-alpine3.22': false,
+      'node 24-alpine3.22 -> 26-alpine4.0': false,
+      'node 98-alpine -> 100-alpine': true,
+      'docker.io/library/node 24-alpine -> 26-alpine': true,
+      'example/node 24-alpine -> 26-alpine': false,
+      'nginx 1.31.6 -> 2.0.0': false,
+      'node 24-alpine -> 26-alpine in docker-compose': false,
+      'node 24 -> 26 in .nvmrc': false,
+    },
+    'A major of the official node image in a Dockerfile must automerge only to an even-numbered release, and not to Alpine 4; other images and files must wait for review'
+  );
+}
+
 // Renovate automerges a grouped branch only when every update in it automerges (generateBranchConfig), so a major of
 // a GitHub-published action has to stay out of the group that holds other third-party majors.
 function assertGitHubPublishedActionMajors(orgInherited, githubActions, automerge) {
@@ -1667,6 +1731,7 @@ assertGrafanaPlugins(configs['grafana-plugins']);
 assertGraylogPlugins(configs['graylog-plugins']);
 assertNoAutomerge(configs);
 assertAutomergePolicy(automerge);
+assertNodeImageMajors(automerge);
 assertGitHubPublishedActionMajors(orgInherited, configs['github-actions'], automerge);
 assertPrBodyKeepsAutomergeStatus(orgInherited);
 
