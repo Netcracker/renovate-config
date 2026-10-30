@@ -189,10 +189,19 @@ a team-specific preset:
 - `automerge` merges minor, patch, pin, and digest updates through GitHub's auto-merge once the required checks pass.
   It also merges major updates of the actions GitHub publishes under `actions/*` and `github/*`: a PR-triggered
   workflow runs every action it uses, so a green PR has run the new major, and these majors are mostly runtime moves
-  such as a Node.js bump. Majors of every other dependency wait for review.
+  such as a Node.js bump. It merges major updates of the official `node` image in a Dockerfile too, when the new tag
+  is an even-numbered release, the kind that becomes LTS. Majors of every other dependency wait for review.
   - The checks do not run a release, scheduled, or push-only workflow, so an action used only there merges without
     having run. A repository where such a workflow is costly to break can add a package rule with
     `"automerge": false` for those files (`matchFileNames`).
+  - A Dockerfile that uses `node`, as a build stage or as the runtime, builds in the PR checks, so a green PR has built
+    with the new Node.js. A repository whose checks do not build one of its Dockerfiles can add the same
+    `"automerge": false` rule for that file. The image in a Compose file, a Kubernetes manifest, Helm values, or a
+    workflow `container:` waits for review, because no check is known to start it.
+  - For a tag without an Alpine release, such as `24-alpine`, `node` versioning proposes a new line only once it
+    reaches LTS. A tag that names an Alpine release, such as `24-alpine3.21`, gets every new line: an odd-numbered one
+    waits for review, an even-numbered one merges in April while it is still Current, and a move to Alpine 4 waits
+    for review.
 - `github-actions` groups third-party and Netcracker actions separately, with major updates in separate groups. The
   `renovate/renovate` and `ghcr.io/renovatebot/renovate` images stay out of the third-party groups, so they keep the
   monthly `renovate` group of the inherited config.
