@@ -66,7 +66,8 @@ if (
 }
 if (branchPinRule.versioning !== 'git') {
   throw new Error(
-    `The APM branch-pin rule in apm.json must set versioning to git, got ${JSON.stringify(branchPinRule.versioning)}; ` +
+    'The APM branch-pin rule in apm.json must set versioning to git, got ' +
+      `${JSON.stringify(branchPinRule.versioning)}; ` +
       "the apm manager's default versioning reads a digit in a branch name, as in feat/apm-2, as a version and " +
       'offers to replace the branch pin with a release tag'
   );
@@ -97,12 +98,23 @@ const misclassifiedComments = [
     'feat/apm-2',
     'lts/26.1',
     'release/1.2.0',
-    'release/v1.0.7',
     'v1.2',
   ]
     .filter((comment) => releaseTagPattern.test(comment))
     .map((comment) => `"${comment}" names a branch but stays a github-tags lookup`),
-  ...['v1.3.1', '1.2.0', '2.6.3', 'v1.2.3-rc.1', 'v1.2.3+build.4', 'ai-agent-telemetry-v1.2.0']
+  // A branch named <path>/v1.2.3, such as release/v1.0.7, has the shape of a path-prefixed tag and is looked up as
+  // one; the README names it as a known limit.
+  ...[
+    'v1.3.1',
+    '1.2.0',
+    '2.6.3',
+    'v1.2.3-rc.1',
+    'v1.2.3+build.4',
+    'ai-agent-telemetry-v1.2.0',
+    'foo/v1.2.3',
+    'skills/foo/v1.2.3',
+    'release/v1.0.7',
+  ]
     .filter((comment) => !releaseTagPattern.test(comment))
     .map((comment) => `"${comment}" is a release tag but goes to git-refs`),
 ];
@@ -110,6 +122,49 @@ if (misclassifiedComments.length > 0) {
   throw new Error(
     `The APM branch-pin rule's matchCurrentValue ${branchPinRule.matchCurrentValue} in apm.json misclassifies ` +
       `${misclassifiedComments.length} comment(s): ${misclassifiedComments.join('; ')}`
+  );
+}
+
+// github-tags returns every tag of a monorepo, so a pin on foo/v1.2.3 is compared only with the foo/ tags, and Renovate
+// writes the prefix back by replacing the version part of the current value. The compatibility group has to hold the
+// whole path, with or without its trailing slash, and the version group the version alone.
+const pathTagRule = config.packageRules.find(
+  (rule) => rule.versionCompatibility && rule.matchManagers?.includes('apm')
+);
+if (!pathTagRule) {
+  throw new Error(
+    'apm.json has no packageRule with versionCompatibility for manager apm; without it, a dependency pinned as ' +
+      'package#<sha>  # foo/v1.2.3 is compared with every tag of the repository and can be offered bar/v2.0.0 or v3.0.0'
+  );
+}
+const pathTagMatcher = /^\/(.+)\/$/.exec(pathTagRule.matchCurrentValue ?? '');
+if (!pathTagMatcher) {
+  throw new Error(
+    `The APM path-prefixed tag rule in apm.json must set matchCurrentValue to a regex "/<regex>/", got ` +
+      `${JSON.stringify(pathTagRule.matchCurrentValue)}`
+  );
+}
+const pathTagPattern = new RegExp(pathTagMatcher[1]);
+const compatibilityPattern = new RegExp(pathTagRule.versionCompatibility);
+const pathTagMismatches = [
+  ...[
+    ['foo/v1.2.3', 'foo/', '1.2.3'],
+    ['skills/foo/v1.2.3', 'skills/foo/', '1.2.3'],
+    ['cmd/config/v0.15.0-rc.1', 'cmd/config/', '0.15.0-rc.1'],
+  ].flatMap(([comment, compatibility, version]) => {
+    const groups = pathTagPattern.test(comment) ? compatibilityPattern.exec(comment)?.groups : undefined;
+    return [compatibility, compatibility.slice(0, -1)].includes(groups?.compatibility) && groups?.version === version
+      ? []
+      : [`"${comment}" must split into ${compatibility} and ${version}, got ${JSON.stringify(groups ?? null)}`];
+  }),
+  ...['v1.3.1', '1.2.0', 'ai-agent-telemetry-v1.2.0', 'main', 'release/1.2.0']
+    .filter((comment) => pathTagPattern.test(comment))
+    .map((comment) => `"${comment}" has no path prefix but matches the rule`),
+];
+if (pathTagMismatches.length > 0) {
+  throw new Error(
+    `The APM path-prefixed tag rule in apm.json mishandles ${pathTagMismatches.length} comment(s): ` +
+      pathTagMismatches.join('; ')
   );
 }
 

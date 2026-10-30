@@ -410,8 +410,13 @@ Design notes:
   the SHA with the branch head and writes the line as `package#<new sha> # main`. Renovate's built-in `apm` manager
   reads that comment as a release tag, so the preset looks up every comment that is not a release tag as a branch
   through `git-refs`, with `git` versioning so that no branch name is read as a version. A release tag here is
-  `v1.2.3`, `1.2.3`, or `<name>-v1.2.3`, with an optional prerelease or build suffix; a branch such as `release/1.2.0`
-  or `lts/26.1` is followed like `main`.
+  `v1.2.3`, `1.2.3`, `<name>-v1.2.3`, or `<path>/v1.2.3`, with an optional prerelease or build suffix; a branch such as
+  `release/1.2.0` or `lts/26.1` is followed like `main`. A branch named like a path-prefixed tag, such as
+  `release/v1.0.7`, is looked up as a tag and is not updated, and the Dependency Dashboard reports
+  `Could not determine new digest for update (github-tags package <owner>/<repo>)`.
+- A dependency pinned to the commit of a path-prefixed tag, such as `package#<sha>  # foo/v1.2.3`, moves its SHA and
+  its tag to the newest tag with the same prefix, such as `foo/v1.3.0`, and never to a tag with another prefix.
+  Monorepos tag each package this way, and a Go module in a subdirectory requires `<dir>/v1.2.3`.
 - A dependency on a branch without a commit, such as `package#main`, is not updated.
 - Marketplace sources use an immutable SHA with a source-ref comment, such as `ref: <sha>  # v1.2.0` or
   `ref: <sha>  # main`, because `apm.lock.yaml` does not cover these entries.

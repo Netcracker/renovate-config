@@ -42,14 +42,22 @@
     },
     {
       "description": [
-        "Look up an APM dependency pinned to a commit on a branch, such as package#<sha>  # main, through git-refs. Renovate's built-in apm manager reads the comment after the commit as a release tag, and github-tags has no tag by a branch name. A comment that is a release tag (v1.2.3, 1.2.3, or <name>-v1.2.3, with an optional prerelease or build suffix) stays a tag lookup. git versioning keeps a digit in a branch name, as in release/1.2.0 or lts/26.1, from being read as a version"
+        "Look up an APM dependency pinned to a commit on a branch, such as package#<sha>  # main, through git-refs. Renovate's built-in apm manager reads the comment after the commit as a release tag, and github-tags has no tag by a branch name. A comment that is a release tag (v1.2.3, 1.2.3, <name>-v1.2.3, or <path>/v1.2.3, with an optional prerelease or build suffix) stays a tag lookup. git versioning keeps a digit in a branch name, as in release/1.2.0 or lts/26.1, from being read as a version"
       ],
       "matchManagers": ["apm"],
       "matchDatasources": ["github-tags"],
-      "matchCurrentValue": "!/^(?:[^/]+[-_])?v?\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.+-]*)?$/",
+      "matchCurrentValue": "!/^(?:(?:[^/]+[-_])?v?|.+/v)\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.+-]*)?$/",
       "overrideDatasource": "git-refs",
       "overridePackageName": "https://github.com/{{{packageName}}}.git",
       "versioning": "git"
+    },
+    {
+      "description": [
+        "Compare an APM dependency on a path-prefixed release tag, such as package#<sha>  # foo/v1.2.3, only with the tags that share the prefix, and write the prefix back. Monorepos tag each package this way, and a Go module in a subdirectory requires <dir>/v1.2.3"
+      ],
+      "matchManagers": ["apm"],
+      "matchCurrentValue": "/^.+/v\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.+-]*)?$/",
+      "versionCompatibility": "^(?<compatibility>.+/)v(?<version>\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.+-]*)?)$"
     },
     {
       "description": [
