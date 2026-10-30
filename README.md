@@ -406,11 +406,18 @@ Design notes:
 - A dependency on a tag, such as `package#v1.2.0`, moves to the newest tag, while `apm.lock.yaml` stores the resolved
   commit SHA. A dependency pinned to the commit of a tag, such as `package#<sha>  # v1.2.0`, moves its SHA and its tag
   together and is written as `package#<new sha> # v1.3.0`, with one space before the comment.
-- A dependency on a branch whose name holds no digit, such as `package#main` or `package#<sha>  # main`, is not
-  updated. For the second form, the Dependency Dashboard reports
-  `Could not determine new digest for update (github-tags package <owner>/<repo>)`. The built-in manager reads a digit
-  in a branch name as a version, so a pin such as `package#<sha>  # release/1.2.0` gets an update to the newest
-  release tag.
+- A dependency pinned to the commit of a branch, such as `package#<sha>  # main`, follows the branch: Renovate replaces
+  the SHA with the branch head and writes the line as `package#<new sha> # main`. Renovate's built-in `apm` manager
+  reads that comment as a release tag, so the preset looks up every comment that is not a release tag as a branch
+  through `git-refs`, with `git` versioning so that no branch name is read as a version. A release tag here is
+  `v1.2.3`, `1.2.3`, `<name>-v1.2.3`, or `<path>/v1.2.3`, with an optional prerelease or build suffix; a branch such as
+  `release/1.2.0` or `lts/26.1` is followed like `main`. A branch named like a path-prefixed tag, such as
+  `release/v1.0.7`, is looked up as a tag and is not updated, and the Dependency Dashboard reports
+  `Could not determine new digest for update (github-tags package <owner>/<repo>)`.
+- A dependency pinned to the commit of a path-prefixed tag, such as `package#<sha>  # foo/v1.2.3`, moves its SHA and
+  its tag to the newest tag with the same prefix, such as `foo/v1.3.0`, and never to a tag with another prefix.
+  Monorepos tag each package this way, and a Go module in a subdirectory requires `<dir>/v1.2.3`.
+- A dependency on a branch without a commit, such as `package#main`, is not updated.
 - Marketplace sources use an immutable SHA with a source-ref comment, such as `ref: <sha>  # v1.2.0` or
   `ref: <sha>  # main`, because `apm.lock.yaml` does not cover these entries.
 - Marketplace release updates change both the SHA and the semantic-version tag. Marketplace branch updates change the
