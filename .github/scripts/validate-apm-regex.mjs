@@ -3,9 +3,6 @@ import fs from 'node:fs';
 const config = JSON.parse(fs.readFileSync('apm.json', 'utf8'));
 
 const apmPackageRule = config.packageRules.find((rule) => rule.matchDepTypes?.includes('apm'));
-const depsManager = config.customManagers.find(
-  (manager) => manager.description === 'Update APM dependencies pinned to version tags with #.'
-);
 const marketReleaseManager = config.customManagers.find(
   (manager) => manager.description === 'Update marketplace APM entries pinned to release tags.'
 );
@@ -19,22 +16,20 @@ if (!apmPackageRule) {
 if (apmPackageRule.groupName !== 'apm packages') {
   throw new Error('APM package rule must group package updates');
 }
+if (!apmPackageRule.matchDepTypes.includes('apm-dev')) {
+  throw new Error(
+    `APM package rule in apm.json must match depType apm-dev as well as apm, got matchDepTypes ${JSON.stringify(apmPackageRule.matchDepTypes)}: the built-in apm manager gives devDependencies the apm-dev type, and without it their updates leave the apm packages group, so a repository that also extends the automerge preset merges their non-major updates without review`
+  );
+}
 if (apmPackageRule.pinDigests === true) {
-  throw new Error('APM package rule must not pin digests in dependencies; SHAs there belong in apm.lock');
+  throw new Error(
+    'APM package rule must not pin digests: the built-in apm manager would then rewrite every dependency on a tag, such as #v1.2.0, as #<sha> # v1.2.0 in each repository that uses the preset'
+  );
 }
 if (apmPackageRule.automerge !== false) {
   throw new Error('APM updates must stay under manual review (automerge: false)');
 }
 
-// Renovate's built-in apm manager extracts devDependencies.apm as depType apm-dev.
-if (!apmPackageRule.matchDepTypes.includes('apm-dev')) {
-  throw new Error(
-    'APM package rule in apm.json must also match depType apm-dev, which Renovate\'s apm manager gives ' +
-      `devDependencies, got matchDepTypes ${JSON.stringify(apmPackageRule.matchDepTypes)}; without it, an APM ` +
-      "devDependencies update gets a branch of its own outside the apm packages group, and the automerge preset's " +
-      'digest rule can merge it'
-  );
-}
 const gitRefsReleaseAgeRule = config.packageRules.find(
   (rule) => rule.matchDatasources?.includes('git-refs') && 'minimumReleaseAge' in rule
 );
@@ -119,7 +114,6 @@ if (misclassifiedComments.length > 0) {
 }
 
 for (const [name, manager, datasource] of [
-  ['dependencies', depsManager, 'github-tags'],
   ['marketplace release', marketReleaseManager, 'github-tags'],
   ['marketplace branch', marketBranchManager, 'git-refs'],
 ]) {
@@ -130,22 +124,12 @@ for (const [name, manager, datasource] of [
     throw new Error(`${name} APM manager must use the ${datasource} datasource, got ${manager.datasourceTemplate}`);
   }
 }
-for (const manager of [depsManager, marketReleaseManager]) {
-  if (manager.versioningTemplate !== 'semver') {
-    throw new Error(`Tag-tracking APM manager ${JSON.stringify(manager.description)} must use semver versioning`);
-  }
+if (marketReleaseManager.versioningTemplate !== 'semver') {
+  throw new Error('Marketplace release manager must use semver versioning');
 }
 
 function hasNamedDigest(manager) {
   return manager.matchStrings.some((matchString) => /\(\?<currentDigest>/.test(matchString));
-}
-
-// Dependencies (apm.lock covers them): apm.yml keeps no SHA, so the manager must not read or emit a digest.
-if (hasNamedDigest(depsManager)) {
-  throw new Error('Dependencies manager must not capture currentDigest; SHAs there live in apm.lock, not apm.yml');
-}
-if (depsManager.autoReplaceStringTemplate.includes('newDigest')) {
-  throw new Error('Dependencies manager must not write a digest back into apm.yml');
 }
 
 // Marketplace (not covered by any lockfile): the SHA pin is the lock, so both managers keep and update the digest.
@@ -218,63 +202,62 @@ function replaceFirstMatch(manager, content, update) {
   return `${content.slice(0, match.index)}${replacement}${content.slice(match.index + match[0].length)}`;
 }
 
-function countMatches(manager, content) {
-  return [...content.matchAll(new RegExp(manager.matchStrings[0], 'g'))].length;
-}
-
 const oldDigest = '96f42e9a2a694632f3ef355ce45ad33c13906220';
 const newDigest = 'f7d7b53f2eb840645236cd46d60750db53f0ef6e';
 
-// --- Dependencies: a legacy digest pin collapses to a clean tag on the first bump. ---
-const legacyHashFixture = `dependencies:
-  apm:
-    - Netcracker/qubership-ai-agent-telemetry/agent-packages/ai-agent-telemetry#${oldDigest}  # v0.1.0
-    - Netcracker/qubership-ai-packages/agent-packages/apm-authoring#main
-`;
-const bumpedHash = replaceFirstMatch(depsManager, legacyHashFixture, { newValue: 'v1.0.1' });
-if (!bumpedHash.includes('/ai-agent-telemetry#v1.0.1')) {
-  throw new Error(`Bumped dependency must become a clean tag, got:\n${bumpedHash}`);
-}
-if (/[0-9a-f]{40}/.test(bumpedHash) || bumpedHash.includes('  # ')) {
-  throw new Error(`Bumped dependency must drop the digest and its comment, got:\n${bumpedHash}`);
-}
-if (countMatches(depsManager, legacyHashFixture) !== countMatches(depsManager, bumpedHash)) {
-  throw new Error('Bumping a dependency must preserve the dependency count');
-}
-
-const cleanHashFixture = `dependencies:
+// --- Dependencies: Renovate's built-in apm manager updates them, so no custom manager extracts one. ---
+// A second manager on a dependency line writes a competing update to that line. The marketplace entries in the same
+// manifest are the controls: each marketplace manager extracts its own entry. The dependency lines name other packages
+// than the marketplace entries, so a depName shows which kind of line a manager matched. The invalid `@` shorthand,
+// which APM 0.26.0 rejects, is extracted by no manager either.
+const manifestFixture = `dependencies:
   apm:
     - Netcracker/qubership-ai-agent-telemetry/agent-packages/ai-agent-telemetry#v0.1.0
-`;
-const bumpedClean = replaceFirstMatch(depsManager, cleanHashFixture, { newValue: 'v1.0.1' });
-if (!bumpedClean.includes('/ai-agent-telemetry#v1.0.1') || /[0-9a-f]{40}/.test(bumpedClean)) {
-  throw new Error(`Clean dependency tag must bump without gaining a digest, got:\n${bumpedClean}`);
-}
-
-// A branch dependency is recognized but never regains a digest.
-const branchDependencyFixture = `dependencies:
-  apm:
-    - Netcracker/qubership-ai-packages/agent-packages/apm-authoring#${oldDigest}  # main
-`;
-const branchDependencyMatch = firstMatch(depsManager, branchDependencyFixture);
-if (branchDependencyMatch?.groups.currentValue !== 'main') {
-  throw new Error(`Dependencies manager must read the branch name, got ${JSON.stringify(branchDependencyMatch?.groups.currentValue)}`);
-}
-const collapsedBranch = replaceDependency(depsManager, branchDependencyMatch, { newValue: 'main' });
-if (/[0-9a-f]{40}/.test(collapsedBranch) || collapsedBranch.includes('  # ')) {
-  throw new Error(`Collapsing a branch dependency must drop the digest, got: ${JSON.stringify(collapsedBranch)}`);
-}
-
-// The invalid `@alias` shorthand (rejected by APM 0.26.0) must not be extracted by any manager.
-const atShorthandFixture = `dependencies:
-  apm:
+    - Netcracker/qubership-workflow-hub/agent-packages/qubership-workflow-hub-usage#${oldDigest}  # v2.8.2
+    - Netcracker/qubership-core-lib-go/logging/agent-packages/logging-go-usage#${oldDigest}  # feat/agent-packages
     - Netcracker/qubership-ai-agent-telemetry/agent-packages/ai-agent-telemetry@v1.2.0
+    - Netcracker/qubership-workflow-hub#v2.8.2
+    - Netcracker/qubership-ai-packages/agent-packages/codex-review#${oldDigest}
+devDependencies:
+  apm:
+    - Netcracker/qubership-ai-packages/agent-packages/apm-authoring#main
+    - Netcracker/qubership-ai-packages/agent-packages/final-review#${newDigest}  # v1.0.0
+marketplace:
+  packages:
+    - name: api-diff-authoring
+      source: Netcracker/qubership-apihub-api-diff
+      subdir: agent-packages/api-diff-authoring
+      ref: ${oldDigest}  # v0.1.0
+    - name: api-unifier-authoring
+      source: Netcracker/qubership-apihub-api-unifier
+      subdir: agent-packages/api-unifier-authoring
+      ref: ${newDigest}  # develop
 `;
+const expectedManifestDepNames = {
+  [marketReleaseManager.description]: ['Netcracker/qubership-apihub-api-diff/agent-packages/api-diff-authoring'],
+  [marketBranchManager.description]: ['Netcracker/qubership-apihub-api-unifier/agent-packages/api-unifier-authoring'],
+};
+const manifestMismatches = [];
 for (const manager of config.customManagers) {
-  const match = firstMatch(manager, atShorthandFixture);
-  if (match?.groups?.currentValue === 'v1.2.0') {
-    throw new Error(`APM manager ${JSON.stringify(manager.description)} must not extract the invalid @v1.2.0 shorthand`);
+  const depNames = [...manifestFixture.matchAll(new RegExp(manager.matchStrings[0], 'g'))].map(
+    (match) => extractRuntimeDependency(manager, match).depName
+  );
+  const expected = expectedManifestDepNames[manager.description] ?? [];
+  const extra = depNames.filter((depName) => !expected.includes(depName));
+  const missing = expected.filter((depName) => !depNames.includes(depName));
+  if (extra.length > 0) {
+    manifestMismatches.push(
+      `${JSON.stringify(manager.description)} extracts dependency lines ${JSON.stringify(extra)}, which Renovate's built-in apm manager updates; a second manager on such a line writes a competing update to it. Remove the manager from apm.json, or limit its matchStrings to the marketplace block.`
+    );
   }
+  if (missing.length > 0) {
+    manifestMismatches.push(
+      `${JSON.stringify(manager.description)} no longer extracts the marketplace entries ${JSON.stringify(missing)}, so Renovate stops updating them; fix its matchStrings in apm.json.`
+    );
+  }
+}
+if (manifestMismatches.length > 0) {
+  throw new Error(`APM custom managers extract the wrong lines of apm.yml:\n${manifestMismatches.join('\n')}`);
 }
 
 // --- Marketplace release entry: keep the SHA pin and update both digest and tag. ---

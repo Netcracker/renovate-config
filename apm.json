@@ -1,19 +1,9 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": ["Detect APM package dependencies in apm.yml files"],
+  "description": [
+    "Update APM marketplace entries in apm.yml files and keep APM updates grouped under manual review; Renovate's built-in apm manager updates APM dependencies"
+  ],
   "customManagers": [
-    {
-      "description": "Update APM dependencies pinned to version tags with #.",
-      "customType": "regex",
-      "managerFilePatterns": ["/(^|/)apm\\.yml$/"],
-      "matchStrings": [
-        "(?<indentation>[\\t ]*)-\\s+(?<depName>(?<packageName>[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/(?<apmSubdir>[^\\s#@]+))#(?:[0-9a-f]{40}\\s+#\\s+)?(?<currentValue>[A-Za-z_./-][A-Za-z0-9_./-]*)"
-      ],
-      "datasourceTemplate": "github-tags",
-      "versioningTemplate": "semver",
-      "depTypeTemplate": "apm",
-      "autoReplaceStringTemplate": "{{{indentation}}}- {{{depName}}}#{{{newValue}}}"
-    },
     {
       "description": "Update marketplace APM entries pinned to release tags.",
       "customType": "regex",
@@ -42,7 +32,9 @@
   ],
   "packageRules": [
     {
-      "description": ["Group APM package updates together and keep them under manual review"],
+      "description": [
+        "Group APM package updates together and keep them under manual review; the built-in apm manager gives devDependencies the apm-dev type"
+      ],
       "groupName": "apm packages",
       "matchDepTypes": ["apm", "apm-dev"],
       "labels": ["dependencies", "apm"],

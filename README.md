@@ -32,7 +32,8 @@ for every repository in the organization.
   release-age window.
 - Version pins may proceed when Renovate cannot attach a release timestamp.
 - Track this limitation in [Renovate issue #40288](https://github.com/renovatebot/renovate/issues/40288).
-- Docker and GitHub tag digest updates wait seven days when the datasource reports a release timestamp.
+- Docker and GitHub tag digest updates wait seven days when the datasource reports a release timestamp. A digest
+  update of the `golang` builder image is the exception the Go rules below state.
 - A digest update with no release timestamp proceeds immediately. A SHA-pinned Action with a floating major comment
   such as `# v4` has no exact release to age against, so its digest updates have no delay. Use an exact version comment
   such as `# v4.6.0` to keep the seven-day delay.
@@ -53,14 +54,20 @@ for every repository in the organization.
 - Go patch updates, such as `1.26.4` to `1.26.8` in the `toolchain` directive in `go.mod`, and official
   `golang.org/x/*` updates bypass the delay. An up-to-date toolchain builds Go security fixes into the compiled
   binaries, which matters most for services. Other Go module dependencies keep the standard seven-day delay.
+- Patch and digest updates of the official `golang` builder image bypass the delay where the tag pins the Go minor
+  release, as `1.27.2-alpine3.24`, `1.27-alpine`, and `1.27.3` do. The Alpine versioning rules classify a tag bump
+  that only moves the Alpine release, such as `1.27.3-alpine3.24` to `1.27.3-alpine3.25`, as a patch, so it bypasses
+  the delay as well. A floating tag such as `golang:alpine`, `golang:latest`, or `golang:1-alpine3.24` keeps the
+  seven-day delay: its text stays the same across Go minor releases, so the move to the next minor release reaches
+  Renovate as a digest update of a pinned digest rather than as a minor update.
 - Go minor updates, such as `1.26` to `1.27` in the `toolchain` directive or in another Go version from the
   `golang-version` datasource, wait 90 days. A linter built with an older Go cannot type-check the standard library of
   the new release: golangci-lint 2.12.2 in super-linter 8.7.0 is built with Go 1.26 and fails on `toolchain go1.27.1`
   with `the Go language version (go1.26) used to build golangci-lint is lower than the targeted Go version (1.27.1)`. Go
   ships security fixes for the previous minor release too, so the delay leaves the binaries patched. Until then,
   Renovate proposes the newest patch release of the current minor release. A module more than one minor release behind
-  moves to the newest release that is 90 days old, and gets the later patch releases on the next run. `golang` builder
-  images and explicit GitHub Actions Go versions keep the standard seven-day delay.
+  moves to the newest release that is 90 days old, and gets the later patch releases on the next run. Minor and major
+  updates of a `golang` builder image, and explicit GitHub Actions Go versions, keep the standard seven-day delay.
 - The `go` directive in `go.mod` is raised only to a Go release that is at least three years (1095 days) old. The
   directive sets the oldest Go that can build the module, and three years is the typical backward-compatibility
   contract, so a library stays usable by consumers that have not upgraded Go yet. Renovate proposes the newest release
@@ -182,10 +189,19 @@ a team-specific preset:
 - `automerge` merges minor, patch, pin, and digest updates through GitHub's auto-merge once the required checks pass.
   It also merges major updates of the actions GitHub publishes under `actions/*` and `github/*`: a PR-triggered
   workflow runs every action it uses, so a green PR has run the new major, and these majors are mostly runtime moves
-  such as a Node.js bump. Majors of every other dependency wait for review.
+  such as a Node.js bump. It merges major updates of the official `node` image in a Dockerfile too, when the new tag
+  is an even-numbered release, the kind that becomes LTS. Majors of every other dependency wait for review.
   - The checks do not run a release, scheduled, or push-only workflow, so an action used only there merges without
     having run. A repository where such a workflow is costly to break can add a package rule with
     `"automerge": false` for those files (`matchFileNames`).
+  - A Dockerfile that uses `node`, as a build stage or as the runtime, builds in the PR checks, so a green PR has built
+    with the new Node.js. A repository whose checks do not build one of its Dockerfiles can add the same
+    `"automerge": false` rule for that file. The image in a Compose file, a Kubernetes manifest, Helm values, or a
+    workflow `container:` waits for review, because no check is known to start it.
+  - For a tag without an Alpine release, such as `24-alpine`, `node` versioning proposes a new line only once it
+    reaches LTS. A tag that names an Alpine release, such as `24-alpine3.21`, gets every new line: an odd-numbered one
+    waits for review, an even-numbered one merges in April while it is still Current, and a move to Alpine 4 waits
+    for review.
 - `github-actions` groups third-party and Netcracker actions separately, with major updates in separate groups. The
   `renovate/renovate` and `ghcr.io/renovatebot/renovate` images stay out of the third-party groups, so they keep the
   monthly `renovate` group of the inherited config.
@@ -215,7 +231,8 @@ a team-specific preset:
 - `grafana-plugins` updates Grafana plugin ID and version pairs in `plugins.list`, including plugins whose Grafana API
   response contains only one release.
 - `graylog-plugins` updates GitHub release URLs for Graylog plugin JARs in `plugins.list`.
-- `apm` updates APM package references in `apm.yml`.
+- `apm` updates APM marketplace entries in `apm.yml` and keeps every APM update grouped under manual review. Renovate's
+  built-in `apm` manager updates APM dependencies.
 
 The `go` preset includes `go-tidy` to keep dependencies imported behind build tags in `go.sum`. The first Renovate Go
 update after enabling the preset can also remove stale checksums or unused indirect requirements. Review that cleanup
@@ -379,20 +396,23 @@ depName=Netcracker/qubership-test-pipelines
 
 ## `apm.json` preset
 
-[`apm.json`](./apm.json) detects APM package references in `apm.yml` files. It handles dependencies and marketplace
-sources differently because only dependencies are covered by `apm.lock.yaml`.
+[`apm.json`](./apm.json) updates the marketplace entries in `apm.yml` files and puts every APM update in the
+`apm packages` group, under manual review. The `dependencies` and `devDependencies` of an `apm.yml` are updated by
+Renovate's built-in [`apm` manager](https://docs.renovatebot.com/modules/manager/apm/), available in Renovate 44.59.0
+and later. With an older self-hosted Renovate, no APM dependency is updated.
 
 Design notes:
 
-- Dependencies use a tag such as `package#v1.2.0`. Renovate advances the tag, while `apm.lock.yaml` stores the resolved
-  commit SHA. Dependency branch refs such as `package#main` remain unchanged.
-- A dependency pinned to a commit with a branch comment, such as `package#<sha>  # main`, follows the branch: Renovate
-  replaces the SHA with the branch head and writes the line as `package#<new sha> # main`. Renovate's built-in `apm`
-  manager reads that comment as a release tag, so the preset looks up every comment that is not a release tag as a
-  branch through `git-refs`. A release tag here is `v1.2.3`, `1.2.3`, or `<name>-v1.2.3`, with an optional prerelease
-  or build suffix; a branch such as `release/1.2.0` or `lts/26.1` is followed like `main`.
-- A legacy dependency pin such as `package#<sha>  # v1.2.0` becomes `package#v1.3.0` on its first tag update. The
-  dependency SHA remains in `apm.lock.yaml`.
+- A dependency on a tag, such as `package#v1.2.0`, moves to the newest tag, while `apm.lock.yaml` stores the resolved
+  commit SHA. A dependency pinned to the commit of a tag, such as `package#<sha>  # v1.2.0`, moves its SHA and its tag
+  together and is written as `package#<new sha> # v1.3.0`, with one space before the comment.
+- A dependency pinned to the commit of a branch, such as `package#<sha>  # main`, follows the branch: Renovate replaces
+  the SHA with the branch head and writes the line as `package#<new sha> # main`. Renovate's built-in `apm` manager
+  reads that comment as a release tag, so the preset looks up every comment that is not a release tag as a branch
+  through `git-refs`, with `git` versioning so that no branch name is read as a version. A release tag here is
+  `v1.2.3`, `1.2.3`, or `<name>-v1.2.3`, with an optional prerelease or build suffix; a branch such as `release/1.2.0`
+  or `lts/26.1` is followed like `main`.
+- A dependency on a branch without a commit, such as `package#main`, is not updated.
 - Marketplace sources use an immutable SHA with a source-ref comment, such as `ref: <sha>  # v1.2.0` or
   `ref: <sha>  # main`, because `apm.lock.yaml` does not cover these entries.
 - Marketplace release updates change both the SHA and the semantic-version tag. Marketplace branch updates change the

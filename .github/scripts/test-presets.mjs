@@ -675,6 +675,99 @@ function assertOrgInheritedPolicy(config) {
       );
     }
   }
+
+  // The rule carries no matchManagers, so a builder image reaches it from a Dockerfile, a workflow container:, and a
+  // custom.regex dependency alike.
+  const builderImageTag = '1.27.2-alpine3.24';
+  for (const packageName of [
+    'golang',
+    'library/golang',
+    'docker.io/library/golang',
+    'index.docker.io/library/golang',
+    'registry-1.docker.io/library/golang',
+  ]) {
+    for (const manager of ['dockerfile', 'github-actions', 'custom.regex']) {
+      for (const updateType of ['patch', 'digest']) {
+        const result = applyPackageRules(
+          {
+            manager,
+            datasource: 'docker',
+            packageName,
+            currentValue: builderImageTag,
+            updateType,
+            minimumReleaseAge: config.minimumReleaseAge,
+          },
+          config.packageRules
+        );
+        assert.equal(
+          result.minimumReleaseAge,
+          '0 days',
+          `A ${updateType} update of ${packageName}:${builderImageTag} in a ${manager} file must not wait, since Go ships security fixes in patch releases`
+        );
+      }
+    }
+
+    for (const updateType of ['minor', 'major']) {
+      const result = applyPackageRules(
+        {
+          manager: 'dockerfile',
+          datasource: 'docker',
+          packageName,
+          currentValue: builderImageTag,
+          updateType,
+          minimumReleaseAge: config.minimumReleaseAge,
+        },
+        config.packageRules
+      );
+      assert.equal(
+        result.minimumReleaseAge,
+        '7 days',
+        `A ${updateType} update of ${packageName}:${builderImageTag} must keep the standard delay`
+      );
+    }
+  }
+
+  // config:best-practices pins Docker digests, so a tag that does not name the Go minor release keeps its text when
+  // upstream rebuilds it on the next minor release, and that jump reaches Renovate as a digest update.
+  for (const currentValue of ['alpine', 'latest', '1', '1-alpine3.24', 'bookworm']) {
+    const floatingTag = applyPackageRules(
+      {
+        manager: 'dockerfile',
+        datasource: 'docker',
+        packageName: 'golang',
+        currentValue,
+        updateType: 'digest',
+        minimumReleaseAge: config.minimumReleaseAge,
+      },
+      config.packageRules
+    );
+    assert.equal(
+      floatingTag.minimumReleaseAge,
+      '7 days',
+      `A digest update of golang:${currentValue} must keep the standard delay, since the tag does not pin the Go minor release`
+    );
+  }
+
+  for (const packageName of ['node', 'golangci/golangci-lint', 'ghcr.io/example/golang']) {
+    for (const updateType of ['patch', 'digest']) {
+      const otherImage = applyPackageRules(
+        {
+          manager: 'dockerfile',
+          datasource: 'docker',
+          packageName,
+          currentValue: builderImageTag,
+          updateType,
+          minimumReleaseAge: config.minimumReleaseAge,
+        },
+        config.packageRules
+      );
+      assert.equal(
+        otherImage.minimumReleaseAge,
+        '7 days',
+        `A ${updateType} update of ${packageName} must keep the standard delay, since it is not the official golang image`
+      );
+    }
+  }
 }
 
 // Mirrors RegExpVersioningApi._parse in renovatebot/renovate lib/modules/versioning/regex/index.ts: a missing
@@ -945,6 +1038,70 @@ function assertAutomergePolicy(config) {
   ]) {
     assert.equal(dockerUpdate(currentValue, newValue), expected, `${reason}: ${currentValue} -> ${newValue}`);
   }
+}
+
+// Even-numbered Node.js releases become LTS, odd-numbered ones never do, so only a move to an even line automerges, and
+// only in a Dockerfile, which the PR checks build.
+function assertNodeImageMajors(config) {
+  const automerges = (packageName, updateType, currentValue, newValue, manager = 'dockerfile', datasource = 'docker') =>
+    applyPackageRules(
+      { manager, datasource, packageName, updateType, currentValue, newValue },
+      config.packageRules
+    ).automerge === true;
+  assert.deepEqual(
+    {
+      'node 24-alpine -> 26-alpine': automerges('node', 'major', '24-alpine', '26-alpine'),
+      'node 24-alpine -> 27-alpine': automerges('node', 'major', '24-alpine', '27-alpine'),
+      'node 24 -> 26': automerges('node', 'major', '24', '26'),
+      'node 24.11.0-alpine3.22 -> 26.1.0-alpine3.22': automerges(
+        'node',
+        'major',
+        '24.11.0-alpine3.22',
+        '26.1.0-alpine3.22'
+      ),
+      'node 24-alpine3.22 -> 25-alpine3.22': automerges('node', 'major', '24-alpine3.22', '25-alpine3.22'),
+      'node 24.11.0-alpine3.22 -> 25.0.0-alpine3.22': automerges(
+        'node',
+        'major',
+        '24.11.0-alpine3.22',
+        '25.0.0-alpine3.22'
+      ),
+      'node 24-alpine3.22 -> 26-alpine4.0': automerges('node', 'major', '24-alpine3.22', '26-alpine4.0'),
+      'node 98-alpine -> 100-alpine': automerges('node', 'major', '98-alpine', '100-alpine'),
+      'docker.io/library/node 24-alpine -> 26-alpine': automerges(
+        'docker.io/library/node',
+        'major',
+        '24-alpine',
+        '26-alpine'
+      ),
+      'example/node 24-alpine -> 26-alpine': automerges('example/node', 'major', '24-alpine', '26-alpine'),
+      'nginx 1.31.6 -> 2.0.0': automerges('nginx', 'major', '1.31.6', '2.0.0'),
+      'node 24-alpine -> 26-alpine in docker-compose': automerges(
+        'node',
+        'major',
+        '24-alpine',
+        '26-alpine',
+        'docker-compose'
+      ),
+      'node 24 -> 26 in .nvmrc': automerges('node', 'major', '24', '26', 'nvm', 'node-version'),
+    },
+    {
+      'node 24-alpine -> 26-alpine': true,
+      'node 24-alpine -> 27-alpine': false,
+      'node 24 -> 26': true,
+      'node 24.11.0-alpine3.22 -> 26.1.0-alpine3.22': true,
+      'node 24-alpine3.22 -> 25-alpine3.22': false,
+      'node 24.11.0-alpine3.22 -> 25.0.0-alpine3.22': false,
+      'node 24-alpine3.22 -> 26-alpine4.0': false,
+      'node 98-alpine -> 100-alpine': true,
+      'docker.io/library/node 24-alpine -> 26-alpine': true,
+      'example/node 24-alpine -> 26-alpine': false,
+      'nginx 1.31.6 -> 2.0.0': false,
+      'node 24-alpine -> 26-alpine in docker-compose': false,
+      'node 24 -> 26 in .nvmrc': false,
+    },
+    'A major of the official node image in a Dockerfile must automerge only to an even-numbered release, and not to Alpine 4; other images and files must wait for review'
+  );
 }
 
 // Renovate automerges a grouped branch only when every update in it automerges (generateBranchConfig), so a major of
@@ -1574,6 +1731,7 @@ assertGrafanaPlugins(configs['grafana-plugins']);
 assertGraylogPlugins(configs['graylog-plugins']);
 assertNoAutomerge(configs);
 assertAutomergePolicy(automerge);
+assertNodeImageMajors(automerge);
 assertGitHubPublishedActionMajors(orgInherited, configs['github-actions'], automerge);
 assertPrBodyKeepsAutomergeStatus(orgInherited);
 

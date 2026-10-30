@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": ["Automerge non-major dependency updates, and major updates of the actions GitHub publishes, after required checks pass"],
+  "description": ["Automerge non-major dependency updates, major updates of the actions GitHub publishes, and major updates of the official node image in a Dockerfile to an even-numbered release, after required checks pass"],
   "automergeType": "pr",
   "platformAutomerge": true,
   "assignAutomerge": false,
@@ -15,6 +15,21 @@
       "matchManagers": ["github-actions"],
       "matchPackageNames": ["actions/**", "github/**"],
       "matchUpdateTypes": ["major"],
+      "automerge": true
+    },
+    {
+      "description": ["Automerge major updates of the official node image in a Dockerfile to an even-numbered release, the lines that become LTS; the Dockerfile builds in the PR checks, so a green PR has built with the new Node.js. Keep before the Alpine rule, which leaves a move to Alpine 4 for review"],
+      "matchManagers": ["dockerfile"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": [
+        "node",
+        "library/node",
+        "docker.io/library/node",
+        "index.docker.io/library/node",
+        "registry-1.docker.io/library/node"
+      ],
+      "matchUpdateTypes": ["major"],
+      "matchNewValue": "/^\\d*[02468](?:[.-]|$)/",
       "automerge": true
     },
     {

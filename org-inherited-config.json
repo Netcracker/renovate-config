@@ -117,6 +117,20 @@
       "minimumReleaseAge": "1095 days"
     },
     {
+      "description": ["Skip the release-age delay for official golang builder image patch and digest updates, so compiled binaries get Go security fixes as soon as the image ships. The tag has to pin the Go minor release: config:best-practices pins Docker digests, so a floating tag such as golang:alpine or golang:1-alpine3.24 keeps its text across Go minor releases and reaches Renovate as a digest update. The regex versioning rules for X.Y.Z-alpineA.B tags classify a bump that only moves the Alpine release as a patch too"],
+      "matchDatasources": ["docker"],
+      "matchPackageNames": [
+        "golang",
+        "library/golang",
+        "docker.io/library/golang",
+        "index.docker.io/library/golang",
+        "registry-1.docker.io/library/golang"
+      ],
+      "matchCurrentValue": "/^\\d+\\.\\d+/",
+      "matchUpdateTypes": ["patch", "digest"],
+      "minimumReleaseAge": "0 days"
+    },
+    {
       "description": ["Skip the release-age delay for official golang.org/x library updates"],
       "matchDatasources": ["go"],
       "matchPackageNames": ["golang.org/x/**"],
