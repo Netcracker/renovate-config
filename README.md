@@ -32,7 +32,8 @@ for every repository in the organization.
   release-age window.
 - Version pins may proceed when Renovate cannot attach a release timestamp.
 - Track this limitation in [Renovate issue #40288](https://github.com/renovatebot/renovate/issues/40288).
-- Docker and GitHub tag digest updates wait seven days when the datasource reports a release timestamp.
+- Docker and GitHub tag digest updates wait seven days when the datasource reports a release timestamp. A digest
+  update of the `golang` builder image is the exception the Go rules below state.
 - A digest update with no release timestamp proceeds immediately. A SHA-pinned Action with a floating major comment
   such as `# v4` has no exact release to age against, so its digest updates have no delay. Use an exact version comment
   such as `# v4.6.0` to keep the seven-day delay.
@@ -53,14 +54,20 @@ for every repository in the organization.
 - Go patch updates, such as `1.26.4` to `1.26.8` in the `toolchain` directive in `go.mod`, and official
   `golang.org/x/*` updates bypass the delay. An up-to-date toolchain builds Go security fixes into the compiled
   binaries, which matters most for services. Other Go module dependencies keep the standard seven-day delay.
+- Patch and digest updates of the official `golang` builder image bypass the delay where the tag pins the Go minor
+  release, as `1.27.2-alpine3.24`, `1.27-alpine`, and `1.27.3` do. The Alpine versioning rules classify a tag bump
+  that only moves the Alpine release, such as `1.27.3-alpine3.24` to `1.27.3-alpine3.25`, as a patch, so it bypasses
+  the delay as well. A floating tag such as `golang:alpine`, `golang:latest`, or `golang:1-alpine3.24` keeps the
+  seven-day delay: its text stays the same across Go minor releases, so the move to the next minor release reaches
+  Renovate as a digest update of a pinned digest rather than as a minor update.
 - Go minor updates, such as `1.26` to `1.27` in the `toolchain` directive or in another Go version from the
   `golang-version` datasource, wait 90 days. A linter built with an older Go cannot type-check the standard library of
   the new release: golangci-lint 2.12.2 in super-linter 8.7.0 is built with Go 1.26 and fails on `toolchain go1.27.1`
   with `the Go language version (go1.26) used to build golangci-lint is lower than the targeted Go version (1.27.1)`. Go
   ships security fixes for the previous minor release too, so the delay leaves the binaries patched. Until then,
   Renovate proposes the newest patch release of the current minor release. A module more than one minor release behind
-  moves to the newest release that is 90 days old, and gets the later patch releases on the next run. `golang` builder
-  images and explicit GitHub Actions Go versions keep the standard seven-day delay.
+  moves to the newest release that is 90 days old, and gets the later patch releases on the next run. Minor and major
+  updates of a `golang` builder image, and explicit GitHub Actions Go versions, keep the standard seven-day delay.
 - The `go` directive in `go.mod` is raised only to a Go release that is at least three years (1095 days) old. The
   directive sets the oldest Go that can build the module, and three years is the typical backward-compatibility
   contract, so a library stays usable by consumers that have not upgraded Go yet. Renovate proposes the newest release

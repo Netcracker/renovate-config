@@ -675,6 +675,99 @@ function assertOrgInheritedPolicy(config) {
       );
     }
   }
+
+  // The rule carries no matchManagers, so a builder image reaches it from a Dockerfile, a workflow container:, and a
+  // custom.regex dependency alike.
+  const builderImageTag = '1.27.2-alpine3.24';
+  for (const packageName of [
+    'golang',
+    'library/golang',
+    'docker.io/library/golang',
+    'index.docker.io/library/golang',
+    'registry-1.docker.io/library/golang',
+  ]) {
+    for (const manager of ['dockerfile', 'github-actions', 'custom.regex']) {
+      for (const updateType of ['patch', 'digest']) {
+        const result = applyPackageRules(
+          {
+            manager,
+            datasource: 'docker',
+            packageName,
+            currentValue: builderImageTag,
+            updateType,
+            minimumReleaseAge: config.minimumReleaseAge,
+          },
+          config.packageRules
+        );
+        assert.equal(
+          result.minimumReleaseAge,
+          '0 days',
+          `A ${updateType} update of ${packageName}:${builderImageTag} in a ${manager} file must not wait, since Go ships security fixes in patch releases`
+        );
+      }
+    }
+
+    for (const updateType of ['minor', 'major']) {
+      const result = applyPackageRules(
+        {
+          manager: 'dockerfile',
+          datasource: 'docker',
+          packageName,
+          currentValue: builderImageTag,
+          updateType,
+          minimumReleaseAge: config.minimumReleaseAge,
+        },
+        config.packageRules
+      );
+      assert.equal(
+        result.minimumReleaseAge,
+        '7 days',
+        `A ${updateType} update of ${packageName}:${builderImageTag} must keep the standard delay`
+      );
+    }
+  }
+
+  // config:best-practices pins Docker digests, so a tag that does not name the Go minor release keeps its text when
+  // upstream rebuilds it on the next minor release, and that jump reaches Renovate as a digest update.
+  for (const currentValue of ['alpine', 'latest', '1', '1-alpine3.24', 'bookworm']) {
+    const floatingTag = applyPackageRules(
+      {
+        manager: 'dockerfile',
+        datasource: 'docker',
+        packageName: 'golang',
+        currentValue,
+        updateType: 'digest',
+        minimumReleaseAge: config.minimumReleaseAge,
+      },
+      config.packageRules
+    );
+    assert.equal(
+      floatingTag.minimumReleaseAge,
+      '7 days',
+      `A digest update of golang:${currentValue} must keep the standard delay, since the tag does not pin the Go minor release`
+    );
+  }
+
+  for (const packageName of ['node', 'golangci/golangci-lint', 'ghcr.io/example/golang']) {
+    for (const updateType of ['patch', 'digest']) {
+      const otherImage = applyPackageRules(
+        {
+          manager: 'dockerfile',
+          datasource: 'docker',
+          packageName,
+          currentValue: builderImageTag,
+          updateType,
+          minimumReleaseAge: config.minimumReleaseAge,
+        },
+        config.packageRules
+      );
+      assert.equal(
+        otherImage.minimumReleaseAge,
+        '7 days',
+        `A ${updateType} update of ${packageName} must keep the standard delay, since it is not the official golang image`
+      );
+    }
+  }
 }
 
 // Mirrors RegExpVersioningApi._parse in renovatebot/renovate lib/modules/versioning/regex/index.ts: a missing
