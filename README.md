@@ -231,8 +231,8 @@ a team-specific preset:
 - `grafana-plugins` updates Grafana plugin ID and version pairs in `plugins.list`, including plugins whose Grafana API
   response contains only one release.
 - `graylog-plugins` updates GitHub release URLs for Graylog plugin JARs in `plugins.list`.
-- `apm` updates APM marketplace entries in `apm.yml` and keeps every APM update grouped under manual review. Renovate's
-  built-in `apm` manager updates APM dependencies.
+- `apm` updates APM marketplace entries in `apm.yml` and groups every APM update. Renovate's built-in `apm` manager
+  updates APM dependencies.
 
 The `go` preset includes `go-tidy` to keep dependencies imported behind build tags in `go.sum`. The first Renovate Go
 update after enabling the preset can also remove stale checksums or unused indirect requirements. Review that cleanup
@@ -397,7 +397,7 @@ depName=Netcracker/qubership-test-pipelines
 ## `apm.json` preset
 
 [`apm.json`](./apm.json) updates the marketplace entries in `apm.yml` files and puts every APM update in the
-`apm packages` group, under manual review. The `dependencies` and `devDependencies` of an `apm.yml` are updated by
+`apm packages` group. The `dependencies` and `devDependencies` of an `apm.yml` are updated by
 Renovate's built-in [`apm` manager](https://docs.renovatebot.com/modules/manager/apm/), available in Renovate 44.59.0
 and later. With an older self-hosted Renovate, no APM dependency is updated.
 
@@ -415,7 +415,9 @@ Design notes:
   `ref: <sha>  # main`, because `apm.lock.yaml` does not cover these entries.
 - Marketplace release updates change both the SHA and the semantic-version tag. Marketplace branch updates change the
   SHA to the branch head and keep the branch comment.
-- APM updates, including those to `devDependencies`, remain under manual review.
+- The preset does not set `automerge`. A repository that also extends the `automerge` preset merges non-major APM
+  updates, including those to `devDependencies` and to branch-tracked marketplace entries, once the required checks
+  pass.
 
 Use it from a repository-local config:
 
