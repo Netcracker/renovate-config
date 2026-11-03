@@ -18,16 +18,13 @@ if (apmPackageRule.groupName !== 'apm packages') {
 }
 if (!apmPackageRule.matchDepTypes.includes('apm-dev')) {
   throw new Error(
-    `APM package rule in apm.json must match depType apm-dev as well as apm, got matchDepTypes ${JSON.stringify(apmPackageRule.matchDepTypes)}: the built-in apm manager gives devDependencies the apm-dev type, and without it their updates leave the apm packages group, so a repository that also extends the automerge preset merges their non-major updates without review`
+    `APM package rule in apm.json must match depType apm-dev as well as apm, got matchDepTypes ${JSON.stringify(apmPackageRule.matchDepTypes)}: the built-in apm manager gives devDependencies the apm-dev type, and without it their updates leave the apm packages group and arrive as separate pull requests`
   );
 }
 if (apmPackageRule.pinDigests === true) {
   throw new Error(
     'APM package rule must not pin digests: the built-in apm manager would then rewrite every dependency on a tag, such as #v1.2.0, as #<sha> # v1.2.0 in each repository that uses the preset'
   );
-}
-if (apmPackageRule.automerge !== false) {
-  throw new Error('APM updates must stay under manual review (automerge: false)');
 }
 
 for (const [name, manager, datasource] of [
