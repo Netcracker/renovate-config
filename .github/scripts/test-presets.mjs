@@ -216,7 +216,10 @@ function assertGoPolicy(config) {
   assert.ok(clientGoPolicy.allowedVersions, 'Client-go must reject legacy incompatible tags');
   const excludedVersion = new RegExp(clientGoPolicy.allowedVersions.slice(2, -1));
   assert.equal(excludedVersion.test('v11.0.0+incompatible'), true, 'Legacy client-go v11 must be excluded');
-  for (const version of ['v0.37.2', 'v0.38.0', 'v1.0.0']) {
+  for (const version of ['v1.4.0', 'v1.5.0', 'v1.5.1', 'v1.5.2']) {
+    assert.equal(excludedVersion.test(version), true, `${version} is an obsolete client-go release`);
+  }
+  for (const version of ['v0.37.2', 'v0.38.0', 'v1.0.0', 'v1.5.3', 'v1.6.0']) {
     assert.equal(excludedVersion.test(version), false, `${version} must remain eligible`);
   }
   assert.equal(
