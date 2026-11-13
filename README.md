@@ -214,6 +214,9 @@ a team-specific preset:
   preset does not group unrelated dependencies or the `actions/setup-go` action version. The preset also runs
   `go mod tidy` after Go module updates. Builder tags such as `1.26.5-alpine3.24` move to a newer Alpine through the
   inherited config.
+  Client-go versions ending in `+incompatible` and the obsolete `v1.4.0` and `v1.5.0`–`v1.5.2` releases are excluded.
+  These pre-module releases are retracted in the
+  [client-go module metadata](https://proxy.golang.org/k8s.io/client-go/@v/v1.5.2.mod).
 - `go-catch-all` groups minor and patch updates for Go modules not covered by the `go` or `netcracker-dependencies`
   presets. Major updates remain separate.
 - `go-tidy` runs `go mod tidy` after Go module updates for repositories that do not use the `go` preset. On a major
