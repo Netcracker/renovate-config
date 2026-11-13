@@ -4,6 +4,12 @@
   "extends": ["github>Netcracker/renovate-config:go-tidy"],
   "packageRules": [
     {
+      "description": ["Exclude legacy pre-module client-go tags from the modern Kubernetes module version line"],
+      "matchManagers": ["gomod"],
+      "matchPackageNames": ["k8s.io/client-go"],
+      "allowedVersions": "!/\\+incompatible$/"
+    },
+    {
       "description": ["Group Kubernetes Go modules"],
       "matchManagers": ["gomod"],
       "matchPackageNames": ["k8s.io/**", "sigs.k8s.io/**", "github.com/openshift/**"],

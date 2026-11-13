@@ -211,7 +211,20 @@ function assertGoPolicy(config) {
   ]) {
     findRule(config, description);
   }
-  assert.equal(config.packageRules.length, 7, 'go.json must not group unrelated Go dependencies');
+  const clientGo = { manager: 'gomod', datasource: 'go', depName: 'k8s.io/client-go' };
+  const clientGoPolicy = applyPackageRules(clientGo, config.packageRules);
+  assert.ok(clientGoPolicy.allowedVersions, 'Client-go must reject legacy incompatible tags');
+  const excludedVersion = new RegExp(clientGoPolicy.allowedVersions.slice(2, -1));
+  assert.equal(excludedVersion.test('v11.0.0+incompatible'), true, 'Legacy client-go v11 must be excluded');
+  for (const version of ['v0.37.2', 'v0.38.0', 'v1.0.0']) {
+    assert.equal(excludedVersion.test(version), false, `${version} must remain eligible`);
+  }
+  assert.equal(
+    applyPackageRules({ ...clientGo, depName: 'github.com/docker/docker' }, config.packageRules).allowedVersions,
+    undefined,
+    'Other Go modules must retain their version policy'
+  );
+  assert.equal(config.packageRules.length, 8, 'go.json must not group unrelated Go dependencies');
   const kubernetes = findRule(config, 'Group Kubernetes Go modules');
   assert.deepEqual(kubernetes.matchPackageNames, [
     'k8s.io/**',
