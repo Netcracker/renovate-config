@@ -190,7 +190,8 @@ a team-specific preset:
   It also merges major updates of the actions GitHub publishes under `actions/*` and `github/*`: a PR-triggered
   workflow runs every action it uses, so a green PR has run the new major, and these majors are mostly runtime moves
   such as a Node.js bump. It merges major updates of the official `node` image in a Dockerfile too, when the new tag
-  is an even-numbered release, the kind that becomes LTS. Majors of every other dependency wait for review.
+  is an even-numbered release, the kind that becomes LTS. Majors of every other dependency wait for review. Lock file
+  maintenance PRs merge the same way: they change no version range, only the resolved versions within one.
   - The checks do not run a release, scheduled, or push-only workflow, so an action used only there merges without
     having run. A repository where such a workflow is costly to break can add a package rule with
     `"automerge": false` for those files (`matchFileNames`).
