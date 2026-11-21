@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "description": [
-    "Update APM marketplace entries in apm.yml files and keep APM updates grouped under manual review; Renovate's built-in apm manager updates APM dependencies"
+    "Update APM marketplace entries in apm.yml files and group APM updates; Renovate's built-in apm manager updates APM dependencies"
   ],
   "customManagers": [
     {
@@ -33,16 +33,15 @@
   "packageRules": [
     {
       "description": [
-        "Group APM package updates together and keep them under manual review; the built-in apm manager gives devDependencies the apm-dev type"
+        "Group APM package updates together; the built-in apm manager gives devDependencies the apm-dev type"
       ],
       "groupName": "apm packages",
       "matchDepTypes": ["apm", "apm-dev"],
-      "labels": ["dependencies", "apm"],
-      "automerge": false
+      "labels": ["dependencies", "apm"]
     },
     {
       "description": [
-        "Branch-tracked APM refs use git-refs, which has no release timestamp; skip the release-age delay and rely on manual review"
+        "Branch-tracked APM refs use git-refs, which has no release timestamp; skip the release-age delay"
       ],
       "matchDepTypes": ["apm"],
       "matchDatasources": ["git-refs"],
